@@ -218,8 +218,60 @@ class Step(models.Model):
 - `time` is nullable because the GAS app treats `":"` as empty.
 - `group` starts as a `CharField` with choices, not a separate table.
   Promote it only if groups need their own attributes.
-- States are seeded by a data migration carrying the current header row
-  (names, groups, colours, order). Read them off the live sheet once.
+### 6.1 Seed states
+
+Taken from the live sheet header row, in column order. `position` is
+that order and drives the tie-break in §4.5.
+
+| position | group | name | bg | fg |
+|---|---|---|---|---|
+| 1 | ATTENTION | ERROR | `#cc0000` | `#ffffff` |
+| 2 | ATTENTION | OVERDUE | `#ff6d01` | `#000000` |
+| 3 | DUE | DUE | `#fbbc04` | `#000000` |
+| 4 | DUE | TENTATIVE | `#fff2cc` | `#000000` |
+| 5 | COMPLETE | ACCEPTED | `#0b8043` | `#ffffff` |
+| 6 | COMPLETE | SUCCESS | `#34a853` | `#000000` |
+| 7 | COMPLETE | BAD_FEELING | `#e8a598` | `#000000` |
+| 8 | COMPLETE | GOING_WELL | `#b7e1cd` | `#000000` |
+| 9 | COMPLETE | UNREMARKABLE | `#ffffff` | `#000000` |
+| 10 | COMPLETE | GHOSTED | `#d9d9d9` | `#000000` |
+| 11 | COMPLETE | FAIL | `#b7b7b7` | `#000000` |
+| 12 | COMPLETE | BLACKLIST | `#434343` | `#ffffff` |
+
+**The names, groups and order are confirmed. The hex colours are
+placeholders** — plausible Google Sheets palette values, not read off
+the sheet. Replace them with the real ones before the data migration
+is written, or accept them as a fresh palette. Either way the migration
+is the single place they live.
+
+Only three groups occur, matching `GROUPS_RANKED` in the GAS source
+exactly: `ATTENTION` 3, `DUE` 2, `COMPLETE` 1.
+
+### 6.2 What the groups actually mean
+
+`COMPLETE` is a misnomer inherited from the sheet. It holds
+`GOING_WELL`, `BAD_FEELING` and `UNREMARKABLE`, which are ongoing, not
+finished. The real meaning of the three groups is:
+
+| group | meaning |
+|-------|---------|
+| ATTENTION | something is wrong, act now |
+| DUE | something is scheduled |
+| COMPLETE | nothing is pending |
+
+That also explains the date inversion in §4.5: for `ATTENTION` and
+`DUE`, oldest first, because the most overdue thing is the most urgent.
+For `COMPLETE`, newest first, because with nothing pending the only
+useful order is most-recently-touched.
+
+Keep the group names as they are — they match the existing mental
+model and the seeded data. Record the meaning here rather than
+renaming.
+
+`StatesManager.sortByGroup` carries a `TODO: calculate this by position
+in header row`. With `position` stored, group rank is derivable from
+the first position at which each group appears. Not worth doing: three
+groups, explicit ranking is clearer.
 
 ## 7. UI
 
@@ -293,7 +345,7 @@ Done when: `task qa` green in CI, `/healthz` returns 200 locally.
 
 - Tests for model defaults and constraints first.
 - `State`, `Opportunity`, `Step` + migrations.
-- Data migration seeding states from the current sheet header.
+- Data migration seeding the 12 states from §6.1.
 - Django admin registered for all three: a free CRUD backdoor while the
   real UI is being built, and a permanent escape hatch.
 - Fill in `docs/initial-context.md` (architecture, boundaries, the
@@ -421,8 +473,14 @@ concurrently written WAL database.
 
 ## 12. Open questions
 
-- Exact state list: names, groups, colours, order must be read off the
-  live sheet header before the phase 1 data migration.
+- State hex colours (§6.1) are placeholders. Read the real ones off the
+  sheet header, or decide the placeholders are the new palette.
+- `DEFAULT_STEP_STATE` is `UNREMARKABLE`, which is in group `COMPLETE`,
+  the lowest rank. So a freshly created opportunity sorts to the
+  *bottom* of the board, below everything with attention or due states.
+  Intended, or an accident of the sheet? If new applications should
+  surface at the top, either the default state changes or new
+  opportunities need their own rule.
 - Is there a "pool" concept beyond one sheet? The GAS `Pool` maps to a
   single sheet and the menu item is commented out. Assumed: no. If
   several sheets are in use, `Pool` becomes a model and opportunities
