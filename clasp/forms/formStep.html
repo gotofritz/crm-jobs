@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+    <script>
+      let initData = {};
+
+      function prefill() {
+        const htmlId = "fromSheet";
+        initData = JSON.parse(
+          document.getElementById(htmlId)?.innerHTML || "{}"
+        );
+        const when = initData.date ? new Date(initData.date) : new Date();
+        initData.yyyy = when.getFullYear();
+        initData.mm = String(when.getMonth() + 1).padStart(2, "0");
+        initData.dd = String(when.getDate()).padStart(2, "0");
+        if (initData.time) {
+          [initData.HH, initData.MM] = initData.time.split(":");
+        }
+
+        const idEl = document.getElementById("id");
+        if ("id" in initData) {
+          idEl.value = initData.id;
+        } else {
+          idEl.parentNode.removeChild(idEl);
+        }
+        document.getElementById("row").value = initData.row;
+        document.getElementById("yyyy").value = initData.yyyy ?? "";
+        document.getElementById("mm").value = initData.mm ?? "";
+        document.getElementById("dd").value = initData.dd ?? "";
+        document.getElementById("HH").value = initData.HH ?? "";
+        document.getElementById("MM").value = initData.MM ?? "";
+        document.getElementById("title").value = initData.title ?? "title";
+        document.getElementById("contact").value =
+          initData.contact ?? "contact";
+        document.getElementById("comments").value =
+          initData.comments ?? "- comments";
+        const el = document.getElementById("state");
+        if (Array.isArray(initData.allStates)) {
+          initData.allStates.forEach((state, i) => {
+            el.add(new Option(state));
+          });
+        }
+        el.value = initData.state;
+      }
+
+      function onFailure(err) {
+        document.getElementById("err").innerHTML = `ERROR: ${err}`;
+      }
+
+      function onSuccess() {
+        google.script.host.close();
+      }
+
+      function handleFormSubmit(formObj) {
+        document.getElementById("err").innerHTML = "";
+
+        document.getElementById("date").value = [
+          document.getElementById("yyyy").value,
+          document.getElementById("mm").value,
+          document.getElementById("dd").value,
+        ].join("-");
+
+        document.getElementById("time").value = [
+          document.getElementById("HH").value,
+          document.getElementById("MM").value,
+        ].join(":");
+
+        google.script.run
+          .withFailureHandler(onFailure)
+          .withSuccessHandler(onSuccess)
+          .handleCreateStep(formObj);
+        return false;
+      }
+    </script>
+    <style>
+      label {
+        display: block;
+      }
+      div {
+        margin-bottom: 1rem;
+      }
+      input[type="text"]:not([size]),
+      select,
+      textarea {
+        width: 100%;
+      }
+      .err {
+        display: block;
+        background-color: red;
+        color: white;
+        padding: 4px;
+      }
+      .err:empty {
+        display: none;
+      }
+      .two-cols {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+      }
+    </style>
+  </head>
+  <body onload="prefill()">
+    <div id="err" class="err"></div>
+    <form onsubmit="handleFormSubmit(this)">
+      <input type="hidden" name="id" id="id" />
+      <input type="hidden" name="date" id="date" />
+      <input type="hidden" name="time" id="time" />
+      <input type="hidden" name="row" id="row" />
+      <div><button type="submit" id="b">OK</button></div>
+      <div class="two-cols">
+        <div>
+          <label for="date">Date</label>
+          <input
+            type="text"
+            name="yyyy"
+            id="yyyy"
+            placeholder="yyyy"
+            size="4"
+            maxlength="4"
+            pattern="20[123]\d"
+          />-
+          <input
+            type="text"
+            name="mm"
+            id="mm"
+            placeholder="mm"
+            size="2"
+            maxlength="2"
+            pattern="[01]\d"
+          />-
+          <input
+            type="text"
+            name="dd"
+            id="dd"
+            placeholder="dd"
+            size="2"
+            maxlength="2"
+            pattern="[0123]\d"
+          />
+        </div>
+        <div style="margin-right: 2rem">
+          <label for="time">Time</label>
+          <input
+            type="text"
+            name="HH"
+            id="HH"
+            placeholder="HH"
+            size="2"
+            maxlength="2"
+            pattern="[012]\d"
+          />:
+          <input
+            type="text"
+            name="MM"
+            id="MM"
+            placeholder="MM"
+            size="2"
+            maxlength="2"
+            pattern="[0-5]\d"
+          />
+        </div>
+      </div>
+      <div>
+        <label for="title">Title</label>
+        <input type="text" name="title" id="title" required="required" />
+      </div>
+      <div>
+        <label for="title">State</label>
+        <select name="state" id="state" required="required"></select>
+      </div>
+      <div>
+        <label for="contact">Contact</label>
+        <input type="text" name="contact" id="contact" />
+      </div>
+      <div>
+        <label for="comments">More info (free form for comments)</label>
+        <textarea name="comments" rows="6" id="comments"></textarea>
+      </div>
+      <div><button type="submit">OK</button></div>
+    </form>
+  </body>
+</html>

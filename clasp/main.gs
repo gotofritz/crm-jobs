@@ -1,0 +1,25 @@
+// Compiled using crm-clasp-2 1.0.0 (TypeScript 4.8.2)
+function onOpen() {
+    SpreadsheetApp.getActiveSpreadsheet().setSpreadsheetTimeZone("Europe/Berlin");
+    SpreadsheetApp.getUi()
+        .createMenu("CRM 5.0")
+        .addItem("APP", "noop")
+        .addSeparator()
+        // .addSubMenu(SpreadsheetApp.getUi().createMenu("POOL"))
+        .addSubMenu(SpreadsheetApp.getUi()
+        .createMenu("OPPORTUNITY")
+        .addItem("New...", "createOpportunity")
+        .addItem("Edit opportunity", "editOpportunity")
+        .addItem("Delete opportunity", "deleteOpportunity")
+        .addItem("Edit opportunity comments", "editCommentsOpportunity")
+        .addItem("Sort opportunities in this pool", "sortOpportunities"))
+        .addSubMenu(SpreadsheetApp.getUi()
+        .createMenu("STEP")
+        .addItem("New...", "createStep")
+        .addItem("Edit step", "editStep")
+        .addItem("Delete step", "deleteStep")
+        .addItem("Edit step comments", "editCommentsStep")
+        .addItem("Sort steps in this opportunity", "sortSteps"))
+        .addSeparator()
+        .addToUi();
+}

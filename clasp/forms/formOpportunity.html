@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+    <script>
+      let initData = {};
+
+      function prefill() {
+        const htmlId = "fromSheet";
+        initData = JSON.parse(
+          document.getElementById(htmlId)?.innerHTML || "{}"
+        );
+        const when = initData.date ? new Date(initData.date) : new Date();
+        initData.yyyy = when.getFullYear();
+        initData.mm = String(when.getMonth() + 1).padStart(2, "0");
+        initData.dd = String(when.getDate()).padStart(2, "0");
+
+        const idEl = document.getElementById("id");
+        if ("id" in initData) {
+          idEl.value = initData.id;
+        } else {
+          idEl.parentNode.removeChild(idEl);
+        }
+        document.getElementById("yyyy").value = initData.yyyy ?? "";
+        document.getElementById("mm").value = initData.mm ?? "";
+        document.getElementById("dd").value = initData.dd ?? "";
+        document.getElementById("company").value = initData.company ?? "";
+        document.getElementById("position").value = initData.position ?? "";
+        document.getElementById("source").value = initData.source ?? "";
+        document.getElementById("contact").value = initData.contact ?? "";
+        document.getElementById("comments").value = initData.comments ?? "";
+      }
+
+      function onFailure(err) {
+        document.getElementById("err").innerHTML = `ERROR: ${err}`;
+      }
+
+      function onSuccess() {
+        google.script.host.close();
+      }
+
+      function handleFormSubmit(formObj) {
+        document.getElementById("err").innerHTML = "";
+
+        document.getElementById("date").value = [
+          document.getElementById("yyyy").value,
+          document.getElementById("mm").value,
+          document.getElementById("dd").value,
+        ].join("-");
+        google.script.run
+          .withFailureHandler(onFailure)
+          .withSuccessHandler(onSuccess)
+          // note: you can only pass a single arg when submitting a form
+          .handleCreateOpportunity(formObj);
+        return false;
+      }
+    </script>
+    <style>
+      label {
+        display: block;
+      }
+      div {
+        margin-bottom: 1rem;
+      }
+      input[type="text"]:not([size]),
+      textarea {
+        width: 100%;
+      }
+      .err {
+        display: block;
+        background-color: red;
+        color: white;
+        padding: 4px;
+      }
+      .err:empty {
+        display: none;
+      }
+    </style>
+  </head>
+  <body onload="prefill()">
+    <div id="err" class="err"></div>
+    <form onsubmit="handleFormSubmit(this)">
+      <input type="hidden" name="id" id="id" />
+      <input type="hidden" name="date" id="date" />
+      <div>
+        <button type="submit" id="b">OK</button>
+      </div>
+      <div>
+        <label for="company">Company</label>
+        <input type="text" name="company" id="company" required="required" />
+      </div>
+      <div>
+        <label for="position">Position</label>
+        <input type="text" name="position" id="position" required="required" />
+      </div>
+      <div>
+        <label for="date">Date</label>
+        <input
+          type="text"
+          name="yyyy"
+          id="yyyy"
+          placeholder="yyyy"
+          size="4"
+          maxlength="4"
+        />-
+        <input
+          type="text"
+          name="mm"
+          id="mm"
+          placeholder="mm"
+          size="2"
+          maxlength="2"
+          value=""
+        />-
+        <input
+          type="text"
+          name="dd"
+          id="dd"
+          placeholder="dd"
+          size="2"
+          maxlength="2"
+        />
+      </div>
+      <div>
+        <label for="source">Source (Linkedin, Email, etc)</label>
+        <input type="text" name="source" id="source" />
+      </div>
+      <div>
+        <label for="contact">Main Contact</label>
+        <input type="text" name="contact" id="contact" />
+      </div>
+      <div>
+        <label for="comments">More info (free form for comments)</label>
+        <textarea name="comments" rows="6" id="comments"></textarea>
+      </div>
+      <div>
+        <button type="submit" id="b">OK</button>
+      </div>
+    </form>
+  </body>
+</html>

@@ -1,0 +1,85 @@
+
+<!doctype html>
+<html>
+  <head>
+    <base target="_top" />
+    <script>
+      let initData = {};
+
+      function prefill() {
+        const htmlId = "fromSheet";
+
+        initData = JSON.parse(
+          document.getElementById(htmlId)?.innerHTML || "{}",
+        );
+        if (!("id" in initData)) {
+          throw Error("Missing 'id' property");
+        }
+
+        const rowEl = document.getElementById("row");
+        if ("row" in initData) {
+          rowEl.value = initData.row;
+        } else {
+          rowEl.parentNode.removeChild(rowEl);
+        }
+        document.getElementById("id").value = initData.id;
+        document.getElementById("comments").value = initData.comments ?? "";
+      }
+
+      function onFailure(err) {
+        document.getElementById("err").innerHTML = `ERROR: ${err}`;
+      }
+
+      function onSuccess() {
+        google.script.host.close();
+      }
+
+      function handleFormSubmit(formObj) {
+        document.getElementById("err").innerHTML = "";
+        google.script.run
+          .withFailureHandler(onFailure)
+          .withSuccessHandler(onSuccess)
+          .handleEditComment(formObj);
+        return false;
+      }
+    </script>
+    <style>
+      label {
+        display: block;
+      }
+      div {
+        margin-bottom: 1rem;
+      }
+      input[type="text"]:not([size]),
+      textarea {
+        width: 100%;
+      }
+      .err {
+        display: block;
+        background-color: red;
+        color: white;
+        padding: 4px;
+      }
+      .err:empty {
+        display: none;
+      }
+      textarea {
+        height: 400px;
+      }
+    </style>
+  </head>
+  <body onload="prefill()">
+    <div id="err" class="err"></div>
+    <form onsubmit="handleFormSubmit(this)">
+      <div>
+        <button type="submit" id="b">OK</button>
+      </div>
+      <input type="hidden" name="id" id="id" />
+      <input type="hidden" name="row" id="row" />
+      <div>
+        <label for="comments">More info (free form for comments)</label>
+        <textarea name="comments" id="comments"></textarea>
+      </div>
+    </form>
+  </body>
+</html>
