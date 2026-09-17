@@ -1,0 +1,46 @@
+version: "3"
+
+vars:
+  SOURCES: ./
+  VENV: .venv/bin
+
+tasks:
+  lint:
+    desc: Check code with ruff
+    cmds:
+      - "{{.VENV}}/ruff check {{.SOURCES}}"
+      - "{{.VENV}}/ruff format --check {{.SOURCES}}"
+
+  lint-fix:
+    desc: Auto-fix code with ruff
+    cmds:
+      - "{{.VENV}}/ruff check --fix {{.SOURCES}}"
+      - "{{.VENV}}/ruff format {{.SOURCES}}"
+
+  typecheck:
+    desc: Run ty static type checker
+    cmds:
+      - "{{.VENV}}/ty check src/"
+
+  static:
+    desc: Run all static analysis
+    deps: [lint, typecheck]
+
+  test:
+    desc: Run pytest with coverage
+    cmds:
+      - pytest -vv --cov --cov-report=html:tests/coverage --cov-fail-under=95 {{.CLI_ARGS | default "."}}
+
+  coverage-html:
+    desc: Open HTML coverage report in browser
+    cmds:
+      - open tests/coverage/index.html
+
+  qa:
+    desc: Run linting and tests
+    deps: [static, test]
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -rf tests/coverage/
