@@ -312,31 +312,86 @@ Template emits identity, not appearance:
 One stylesheet owns the palette:
 
 ```css
-/* the only file in the project that knows what a state looks like */
+/* jobs/static/jobs/states.css
+   the only file in the project that knows what a state looks like */
+
 .card--step { background: var(--state-bg); color: var(--state-fg); }
 
-/* group fallback: an unstyled new state still renders sensibly */
-[data-group="attention"] { --state-bg: …; --state-fg: …; }
-[data-group="due"]       { --state-bg: …; --state-fg: …; }
-[data-group="complete"]  { --state-bg: …; --state-fg: …; }
+/* group fallback: a new state with no rule of its own still renders */
+[data-group="attention"] { --state-bg: #b3261e; --state-fg: #ffffff; }
+[data-group="due"]       { --state-bg: #ffd54f; --state-fg: #1a1a1a; }
+[data-group="complete"]  { --state-bg: #f5f5f5; --state-fg: #1a1a1a; }
 
-/* per-state overrides, later in the cascade so they win */
-[data-state="blacklist"] { --state-bg: …; --state-fg: …; }
+/* per-state, later in the cascade so it wins */
+[data-state="error"]        { --state-bg: #b3261e; --state-fg: #ffffff; }
+[data-state="overdue"]      { --state-bg: #e8710a; --state-fg: #1a1a1a; }
+[data-state="due"]          { --state-bg: #ffd54f; --state-fg: #1a1a1a; }
+[data-state="tentative"]    { --state-bg: #fff3cd; --state-fg: #1a1a1a; }
+[data-state="accepted"]     { --state-bg: #1b5e20; --state-fg: #ffffff; }
+[data-state="success"]      { --state-bg: #a5d6a7; --state-fg: #1a1a1a; }
+[data-state="going-well"]   { --state-bg: #c8e6c9; --state-fg: #1a1a1a; }
+[data-state="unremarkable"] { --state-bg: #f5f5f5; --state-fg: #1a1a1a; }
+[data-state="bad-feeling"]  { --state-bg: #e28fae; --state-fg: #1a1a1a; }
+[data-state="ghosted"]      { --state-bg: #e0e0e0; --state-fg: #424242;
+                              border-style: dashed; }
+[data-state="fail"]         { --state-bg: #d7ccc8; --state-fg: #4e342e; }
+[data-state="blacklist"]    { --state-bg: #37474f; --state-fg: #ffffff; }
 ```
 
-Three things fall out of this that the GAS version could not do:
+Two things fall out of this that the GAS version could not do:
 
 - Adding a state is a data change. It renders in its group's colours
   immediately, with no CSS written, and no broken card.
-- Dark mode is a media query, not a second set of columns.
-- Changing the palette never touches the database.
+- Dark mode is a media query, not a second set of columns. Not built
+  now; the hook is there if wanted.
 
-**The tradeoff, stated plainly:** in the sheet you recoloured a state by
-painting a cell. Here it takes a CSS edit and a deploy. That is a real
-capability lost. It is the right trade for a palette that changes once a
-year, and the wrong one if state colours turn out to be something you
-fiddle with weekly — in which case the fix is a `theme` table read by a
-template tag, still keeping hex out of `State`. Not planned for now.
+### 6.4 The palette
+
+Fixed. It is not expected to change, and nothing in the app reads it at
+runtime, so it needs no admin screen and no table.
+
+Shape: `ATTENTION` is loud, because it means act now. `DUE` is warm and
+mid-weight. `COMPLETE` is quiet — eight of the twelve states live there,
+and a board of eight saturated blocks is unreadable. Within `COMPLETE`,
+lightness carries the outcome: dark green for `ACCEPTED`, pale green
+through neutral grey to brown-grey for `FAIL`, near-black for
+`BLACKLIST`.
+
+Every pair below was checked against WCAG AA for body text (4.5:1):
+
+| state | bg | fg | ratio |
+|-------|----|----|------:|
+| ERROR | `#b3261e` | `#ffffff` | 6.54 |
+| OVERDUE | `#e8710a` | `#1a1a1a` | 5.63 |
+| DUE | `#ffd54f` | `#1a1a1a` | 12.33 |
+| TENTATIVE | `#fff3cd` | `#1a1a1a` | 15.71 |
+| ACCEPTED | `#1b5e20` | `#ffffff` | 7.87 |
+| SUCCESS | `#a5d6a7` | `#1a1a1a` | 10.59 |
+| GOING_WELL | `#c8e6c9` | `#1a1a1a` | 12.94 |
+| UNREMARKABLE | `#f5f5f5` | `#1a1a1a` | 15.96 |
+| BAD_FEELING | `#e28fae` | `#1a1a1a` | 7.27 |
+| GHOSTED | `#e0e0e0` | `#424242` | 7.61 |
+| FAIL | `#d7ccc8` | `#4e342e` | 7.20 |
+| BLACKLIST | `#37474f` | `#ffffff` | 9.65 |
+
+Worst case 5.63:1, against a 4.5:1 requirement.
+
+Two deliberate choices in there:
+
+- `BAD_FEELING` is darker than a pastel pink would be. At equal
+  lightness, pink and green are the classic red-green collision, and
+  `SUCCESS` sitting next to `BAD_FEELING` looking identical is the one
+  confusion that actually matters. Darkening it separates them by
+  lightness as well as hue.
+- `GHOSTED` gets a dashed border. Some pairs in `COMPLETE` are close in
+  lightness and colour alone will not always separate them — the state
+  name is printed on every card, so colour is never the only channel,
+  and `GHOSTED` gets a second visual one because it is the state you
+  scan for.
+
+The sticky summary card is deliberately outside this scheme: neutral
+white with a hard right border, so it reads as a different kind of
+object rather than another state.
 
 Colour is the obvious case; the same split applies to the rest:
 
@@ -452,12 +507,13 @@ by a named test.
 - Board view, row partial, summary card, step card.
 - Tailwind standalone CLI wired into `task dev` in watch mode.
 - Sticky summary + per-row horizontal scroll (§7).
-- State palette in one stylesheet, keyed on `data-state` /
-  `data-group` (§6.3). Pick the palette fresh; the sheet's hex
-  values are not carried over.
+- State palette from §6.4 in one stylesheet, keyed on `data-state` /
+  `data-group`.
 - Tests: view returns 200; steps render newest-first; a row with no
   steps renders; cards emit `data-state` and `data-group`; a state
-  with no per-state CSS still renders in its group's colours.
+  with no per-state CSS still renders in its group's colours; every
+  pair in §6.4 clears 4.5:1, asserted by a contrast test so a later
+  tweak cannot quietly break legibility.
 
 Done when: a sheet-shaped board renders from seeded data and looks
 right at phone width.
@@ -554,12 +610,9 @@ concurrently written WAL database.
 | SQLite writer lock under concurrent writes | WAL + `IMMEDIATE` transactions; a single user will not hit it |
 | Ordering rules ported subtly wrong | Phase 2 is test-first, with each rule in §4.5 named in a test |
 | Deploy clobbers the database | Data lives outside the deploy directory |
-| Recolouring a state now needs a deploy, not a click | Accepted (§6.3); revisit with a `theme` table if the palette turns out to change often |
 
 ## 12. Open questions
 
-- Palette: pick one in CSS at phase 3. The sheet's hex values are not
-  being carried over (§6.3) — they were a storage format, not a design.
 - `DEFAULT_STEP_STATE` is `UNREMARKABLE`, which is in group `COMPLETE`,
   the lowest rank. So a freshly created opportunity sorts to the
   *bottom* of the board, below everything with attention or due states.
