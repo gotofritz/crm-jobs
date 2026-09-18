@@ -84,6 +84,13 @@ If an open PR exists that covers the same area, commit directly to its branch in
 - Update relevant docs
 - Ensure CI passes
 
+### Title & Body
+
+- Title: Conventional Commits format (`feat:`, `fix:`, `docs:`, etc.)
+- Title: ≤ 50 chars
+- Body: concise summary of changes, not implementation details
+- Body: reference issues with `Closes #N` when relevant
+
 ## Code Standards
 
 - Concise docstrings for public/non-obvious modules
