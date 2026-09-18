@@ -145,6 +145,23 @@ each opportunity's *first* (newest) step:
   spreadsheet theme rewrites the data.
 - `Pool.updateUI` deletes and re-inserts every row on every change.
 
+### 4.7 Pools are a spreadsheet workaround
+
+`Pool` maps to one sheet. The workflow it supported: one sheet is the
+live one, another is the current archive, older archives sit behind
+them. On landing a job, everything live gets archived; before the next
+search, the archive is itself archived and a fresh one started.
+
+The only reason for the generations is that long sheets are unwieldy.
+That is a property of spreadsheets, not of the work. A table with an
+index does not get slower or harder to read because old rows are in it.
+
+So `Pool` does not become a model. The whole concept collapses to one
+nullable timestamp on `Opportunity` (§6.5), and the generations
+disappear entirely — `archived_at` already orders archived
+opportunities by when they were put away, which is what the
+generations were approximating.
+
 ## 5. Target architecture
 
 ```
@@ -206,6 +223,7 @@ class Opportunity(models.Model):
     source = models.CharField(max_length=100, default="LinkedIn")
     contact = models.CharField(max_length=200, default="(Contact unknown)")
     comments = models.TextField(blank=True, default="")
+    archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -225,6 +243,7 @@ class Step(models.Model):
 - `group` is a `TextChoices` field, not a separate table. Promote it
   only if groups need their own attributes.
 - **No colour anywhere in the model.** See §6.3.
+- `archived_at` is the whole of what `Pool` used to be. See §6.5.
 - `slug` exists so presentation has a stable key. Renaming the display
   `name` from `BAD_FEELING` to `Bad feeling` must not repaint the board.
 - `sort_order` replaces the sheet's column position. It is domain, not
@@ -407,9 +426,52 @@ Colour is the obvious case; the same split applies to the rest:
 Phase 2 keeps the sort key a pure function precisely so it can be
 tested without a database and cannot drift into a view.
 
+### 6.5 Archiving
+
+An opportunity is live while `archived_at` is `NULL`, archived once it
+is set. That is the whole mechanism.
+
+```python
+class OpportunityQuerySet(models.QuerySet):
+    def live(self):     return self.filter(archived_at__isnull=True)
+    def archived(self): return self.exclude(archived_at__isnull=True)
+```
+
+Explicit querysets, not a default manager that hides archived rows. A
+manager that silently filters is convenient for a week and then bites
+in the admin, in a data migration, and in search — the one place that
+must see everything.
+
+Three actions, matching how the app is used in bursts:
+
+| Action | Effect |
+|--------|--------|
+| Archive one | `archived_at = now()` |
+| Unarchive one | `archived_at = None` |
+| Archive everything live | the "I got a job" action, at the end of a burst |
+
+Nothing is deleted, so all three are reversible and none needs a scary
+confirmation — though bulk archive touches every live row at once, so
+it gets one anyway, with the count in it.
+
+Two consequences worth stating:
+
+- The board (§7) shows live opportunities only. Archived ones are not
+  reachable from it beyond a count, by design: not seeing them is the
+  point of archiving.
+- Until search exists, the Django admin is how archived opportunities
+  get looked at. It is already registered in phase 1, so this costs
+  nothing.
+
+The ordering rules in §4.5 apply to the live board. Archived
+opportunities sort by `archived_at` descending — "which burst was this"
+is the only question worth asking of them, and urgency ranking is
+meaningless once nothing is pending.
+
 ## 7. UI
 
-One page, `GET /`. One row per opportunity.
+One page, `GET /`. One row per live opportunity (§6.5), with an
+archived count in the header and nothing else about the archive.
 
 ```
 -------------------------------------------------
@@ -446,6 +508,9 @@ at the left edge while its steps scroll under it. Step cards carry
 | GET | `/steps/<id>/edit` | form partial |
 | POST | `/steps/<id>/` | row partial |
 | POST | `/steps/<id>/delete` | row partial |
+| POST | `/opportunities/<id>/archive` | empty, swaps row out |
+| POST | `/opportunities/<id>/unarchive` | row partial |
+| POST | `/opportunities/archive-live` | full board, now empty |
 
 Every mutation returns the affected opportunity row and swaps it with
 `hx-target="#opportunity-<id>" hx-swap="outerHTML"`. Re-sorting the
@@ -522,10 +587,13 @@ right at phone width.
 
 - All routes in §7, with `ModelForm`s.
 - Creating an opportunity also creates its first step (§4.4).
-- Delete confirmations.
+- Archive, unarchive, and archive-everything-live (§6.5).
+- Delete confirmations; bulk archive confirms with its count.
 - Tests: one per route, plus validation-failure re-render, plus the
   create-first-step behaviour, plus that editing the first opportunity
-  updates rather than duplicates (the §4.6 bug, as a regression test).
+  updates rather than duplicates (the §4.6 bug, as a regression test),
+  plus that the board excludes archived opportunities and that
+  unarchiving puts one back.
 
 Done when: everything the GAS menus did is doable in the browser.
 
@@ -619,9 +687,33 @@ concurrently written WAL database.
   Intended, or an accident of the sheet? If new applications should
   surface at the top, either the default state changes or new
   opportunities need their own rule.
-- Is there a "pool" concept beyond one sheet? The GAS `Pool` maps to a
-  single sheet and the menu item is commented out. Assumed: no. If
-  several sheets are in use, `Pool` becomes a model and opportunities
-  gain a foreign key to it.
-- Does anything depend on an opportunity being archivable rather than
-  deleted? Not in the GAS app. Add an `archived_at` field if wanted.
+
+## 13. After the port
+
+Not in scope here. Listed so the port does not block them.
+
+### Search — the named first follow-up
+
+Search is what makes the archive usable, and it is the archive's only
+UI (§6.5). Nothing in this plan should get in its way:
+
+- Searchable text lives in ordinary columns — `company`, `position`,
+  step `title`, both `comments` fields — not packed into one string as
+  the sheet did (§4.2).
+- `archived_at` is a filter, not a partition. Search spans live and
+  archived in one query and can scope either way. This is why §6.5
+  refuses a default manager that hides archived rows.
+- Start with `icontains` across those columns. For a few hundred
+  opportunities on SQLite that is instant, and it is about fifteen
+  lines. Move to FTS5 only if it actually gets slow — that means a
+  virtual table and triggers in a raw-SQL migration, which is real
+  weight to carry for a personal tracker.
+- Results reuse the existing row partial, so the summary-plus-steps
+  layout works in search with no new templates.
+
+### Possible later, not committed
+
+- Dark mode: a media query over §6.4, no model change.
+- Per-state colour editing without a deploy: a `theme` table read by a
+  template tag, keeping hex out of `State`. Only if the palette turns
+  out to change, which it is not expected to.
