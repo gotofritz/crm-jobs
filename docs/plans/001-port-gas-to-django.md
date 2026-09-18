@@ -468,6 +468,47 @@ opportunities sort by `archived_at` descending — "which burst was this"
 is the only question worth asking of them, and urgency ranking is
 meaningless once nothing is pending.
 
+### 6.6 Why a new opportunity is UNREMARKABLE
+
+`DEFAULT_STEP_STATE` is `UNREMARKABLE`, in group `COMPLETE`, the
+lowest-ranked group. That looks like an accident — new things sinking
+to the bottom — but reading the full sort says otherwise.
+
+`UNREMARKABLE` is `sort_order` 9 of 12, so a new opportunity lands here:
+
+```
+ATTENTION   ERROR, OVERDUE              act now
+DUE         DUE, TENTATIVE              scheduled
+COMPLETE    ACCEPTED, SUCCESS,          nothing pending,
+            BAD_FEELING, GOING_WELL,    best outcome first
+            UNREMARKABLE   ← new one, newest first within the state
+            GHOSTED, FAIL, BLACKLIST
+```
+
+Mid-pile, above everything dead. And it is the semantically right
+group: you applied, the ball is in their court, nothing is pending on
+you — which is what `COMPLETE` means (§6.2). The `sort_order` ranking
+inside the group reads as "how alive is this", with `ACCEPTED` on top
+because an offer matters most even when nothing is due.
+
+**Decision: keep it. The sort is not changed.**
+
+The original worry — new opportunities getting buried — was a symptom
+of the sheet having no archive, so the dead tail grew without limit.
+The board now shows live opportunities only (§6.5), so that tail is
+short and a new row lands near the top of it.
+
+What is left of the worry is "I added something and it moved" — a
+presentation problem, answered in presentation: after a create, the new
+row is highlighted and scrolled to (§7). Floating new rows to the top
+of the board instead would mean new-but-unremarkable outranking
+`GOING_WELL`, and a board whose position no longer tracks how alive
+something is.
+
+If it turns out to grate in real use, the clean fix is a distinct
+`APPLIED` state at a higher `sort_order` — a data change — not a
+special case inside the sort function.
+
 ## 7. UI
 
 One page, `GET /`. One row per live opportunity (§6.5), with an
@@ -588,6 +629,7 @@ right at phone width.
 - All routes in §7, with `ModelForm`s.
 - Creating an opportunity also creates its first step (§4.4).
 - Archive, unarchive, and archive-everything-live (§6.5).
+- After a create, highlight the new row and scroll it into view (§6.6).
 - Delete confirmations; bulk archive confirms with its count.
 - Tests: one per route, plus validation-failure re-render, plus the
   create-first-step behaviour, plus that editing the first opportunity
@@ -681,12 +723,15 @@ concurrently written WAL database.
 
 ## 12. Open questions
 
-- `DEFAULT_STEP_STATE` is `UNREMARKABLE`, which is in group `COMPLETE`,
-  the lowest rank. So a freshly created opportunity sorts to the
-  *bottom* of the board, below everything with attention or due states.
-  Intended, or an accident of the sheet? If new applications should
-  surface at the top, either the default state changes or new
-  opportunities need their own rule.
+None outstanding. Resolved along the way:
+
+| Was | Resolved in |
+|-----|-------------|
+| State list, groups, order | §6.1 |
+| Palette | §6.4 |
+| Whether `Pool` becomes a model | §4.7, §6.5 |
+| Archive vs delete | §6.5 |
+| Whether the `UNREMARKABLE` default is a bug | §6.6 |
 
 ## 13. After the port
 
