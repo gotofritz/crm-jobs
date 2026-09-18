@@ -252,24 +252,57 @@ Rule: first line splits on `" __ "` into date and optional time. The
 remainder splits on its first `\n\n` into a head block and comments.
 In the head block the first line is the title and the rest is contact.
 
-**The one real ambiguity.** When a step has no contact, the blank line
-lands in a different place and the contact and comments become
-indistinguishable. In the sample, step 4 reads:
+**Malformed cells are cleaned at source, not guessed at.** The sample
+contains one:
 
 ```
 2025-07-11 __ 10:05
 Scheduling interview
-
+                        <- this blank line should not be here
 Maya Richardson
 ```
 
-Structurally that parses as an empty contact and a comment of
-`"Maya Richardson"`, which is wrong. No format-level rule can fix it.
-What works cheaply: collect the contacts already seen elsewhere on the
-same opportunity, and when a step's contact is empty and its whole
-comment matches one of them, treat it as the contact. That recovers
-step 4 correctly. Anything it cannot resolve should be left for review
-rather than guessed.
+The blank line makes the cell parse as an empty contact and a comment
+of `"Maya Richardson"`, which is wrong — it is the contact, and the
+step has no comments. This is bad data rather than a second format.
+
+The dataset is small enough to fix by hand, so the importer does not
+try to infer intent. It parses to the rules above, reports anything
+that does not fit, and stops. Fix the sheet, re-export, re-run. A
+heuristic — matching against contacts already seen on the same
+opportunity — would recover this particular case, and is deliberately
+not used: it would also silently mangle a step whose comment happens to
+name a person.
+
+Canonical form to normalise to, which doubles as the cleanup checklist:
+
+```
+col 1    company
+         <blank>
+         position, one or more lines
+         <blank>
+         comments, free text
+
+col 2    date
+         source
+         <blank>
+         contact
+
+col 3+   date " __ " time
+         title
+         contact
+         <blank>
+         comments, free text
+```
+
+A trailing block is simply absent when empty — a step with no comments
+ends after the contact line, with no trailing blank line. That absence
+is what makes the shape unambiguous.
+
+What the importer should report rather than resolve: a step whose
+contact is empty while its comments are a single short line, a cell
+whose first line is not a date, and any cell yielding more blocks than
+the shape allows.
 
 ### 4.10 Mapping to the new model
 
@@ -310,10 +343,11 @@ that, to be chosen when the import is actually built:
   `REJECTED`, and outcome words do appear there. Fuzzy; at best a
   fallback for the newest step of each row.
 
-The unpacking rules above were checked against the sample export: every
-field extracted correctly, dates strictly descending, no step left
-without a date, title or contact. One row is not a corpus, so treat the
-rules as validated in shape rather than proven exhaustively.
+The unpacking rules above were checked against the sample export. Every
+field extracted correctly and dates came out strictly descending, with
+the one malformed cell above needing a fix in the sheet first. One row
+is not a corpus, so treat the rules as validated in shape rather than
+proven exhaustively.
 
 ## 5. Target architecture
 
@@ -927,8 +961,8 @@ Decisions deferred to when it is built:
   The newest step date of each opportunity approximates when it went
   dormant and is better than the import time, which would collapse
   every generation of archive into one moment.
-- Whether unresolved contact/comment ambiguities block the import or
-  get flagged for review afterwards.
+- Nothing about malformed cells: they are cleaned in the sheet before
+  import, and the importer reports rather than guesses (§4.9).
 
 ### Possible later, not committed
 
