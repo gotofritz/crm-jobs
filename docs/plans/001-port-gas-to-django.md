@@ -186,12 +186,18 @@ parsing config. Record this in `docs/initial-context.md` in phase 1.
 ## 6. Data model
 
 ```python
+class Group(models.TextChoices):
+    ATTENTION = "ATTENTION"
+    DUE = "DUE"
+    COMPLETE = "COMPLETE"
+
+GROUP_RANK = {Group.ATTENTION: 3, Group.DUE: 2, Group.COMPLETE: 1}
+
 class State(models.Model):
-    name = models.CharField(max_length=50, unique=True)   # "UNREMARKABLE"
-    group = models.CharField(max_length=20)               # ATTENTION|DUE|COMPLETE
-    bg = models.CharField(max_length=7)                   # "#ffff00"
-    fg = models.CharField(max_length=7)
-    position = models.PositiveIntegerField()              # was column order
+    slug = models.SlugField(unique=True)          # "bad-feeling" — CSS hook
+    name = models.CharField(max_length=50)        # "BAD_FEELING" — display
+    group = models.CharField(max_length=20, choices=Group)
+    sort_order = models.PositiveIntegerField()    # tie-break, §4.5 rule 3
 
 class Opportunity(models.Model):
     company = models.CharField(max_length=200)
@@ -216,33 +222,37 @@ class Step(models.Model):
 ```
 
 - `time` is nullable because the GAS app treats `":"` as empty.
-- `group` starts as a `CharField` with choices, not a separate table.
-  Promote it only if groups need their own attributes.
+- `group` is a `TextChoices` field, not a separate table. Promote it
+  only if groups need their own attributes.
+- **No colour anywhere in the model.** See §6.3.
+- `slug` exists so presentation has a stable key. Renaming the display
+  `name` from `BAD_FEELING` to `Bad feeling` must not repaint the board.
+- `sort_order` replaces the sheet's column position. It is domain, not
+  layout: it is the third tie-break in §4.5.
+- `GROUP_RANK` lives next to the enum, not in the database. It is a
+  business rule, and a rule that has never changed.
 ### 6.1 Seed states
 
-Taken from the live sheet header row, in column order. `position` is
+Taken from the live sheet header row, in column order. `sort_order` is
 that order and drives the tie-break in §4.5.
 
-| position | group | name | bg | fg |
-|---|---|---|---|---|
-| 1 | ATTENTION | ERROR | `#cc0000` | `#ffffff` |
-| 2 | ATTENTION | OVERDUE | `#ff6d01` | `#000000` |
-| 3 | DUE | DUE | `#fbbc04` | `#000000` |
-| 4 | DUE | TENTATIVE | `#fff2cc` | `#000000` |
-| 5 | COMPLETE | ACCEPTED | `#0b8043` | `#ffffff` |
-| 6 | COMPLETE | SUCCESS | `#34a853` | `#000000` |
-| 7 | COMPLETE | BAD_FEELING | `#e8a598` | `#000000` |
-| 8 | COMPLETE | GOING_WELL | `#b7e1cd` | `#000000` |
-| 9 | COMPLETE | UNREMARKABLE | `#ffffff` | `#000000` |
-| 10 | COMPLETE | GHOSTED | `#d9d9d9` | `#000000` |
-| 11 | COMPLETE | FAIL | `#b7b7b7` | `#000000` |
-| 12 | COMPLETE | BLACKLIST | `#434343` | `#ffffff` |
+| sort_order | group | name | slug |
+|---|---|---|---|
+| 1 | ATTENTION | ERROR | `error` |
+| 2 | ATTENTION | OVERDUE | `overdue` |
+| 3 | DUE | DUE | `due` |
+| 4 | DUE | TENTATIVE | `tentative` |
+| 5 | COMPLETE | ACCEPTED | `accepted` |
+| 6 | COMPLETE | SUCCESS | `success` |
+| 7 | COMPLETE | BAD_FEELING | `bad-feeling` |
+| 8 | COMPLETE | GOING_WELL | `going-well` |
+| 9 | COMPLETE | UNREMARKABLE | `unremarkable` |
+| 10 | COMPLETE | GHOSTED | `ghosted` |
+| 11 | COMPLETE | FAIL | `fail` |
+| 12 | COMPLETE | BLACKLIST | `blacklist` |
 
-**The names, groups and order are confirmed. The hex colours are
-placeholders** — plausible Google Sheets palette values, not read off
-the sheet. Replace them with the real ones before the data migration
-is written, or accept them as a fresh palette. Either way the migration
-is the single place they live.
+No colours here. The sheet's hex values were a storage format, not a
+design; the palette is chosen fresh in CSS (§6.3).
 
 Only three groups occur, matching `GROUPS_RANKED` in the GAS source
 exactly: `ATTENTION` 3, `DUE` 2, `COMPLETE` 1.
@@ -273,6 +283,75 @@ in header row`. With `position` stored, group rank is derivable from
 the first position at which each group appears. Not worth doing: three
 groups, explicit ranking is clearer.
 
+### 6.3 Where colour lives, and why not in the model
+
+The GAS app stored a step's state as its cell's background colour
+because in a spreadsheet the cell *is* the storage. There is no such
+constraint here, and carrying it over would put presentation inside the
+domain: the model would know hex values, the admin would let you edit
+them, and a designer changing the palette would be writing a migration.
+
+Split it by what each layer legitimately knows:
+
+| Layer | Knows |
+|-------|-------|
+| Model | that a step has a state, that a state belongs to a group, and that groups rank |
+| Template | the state's `slug` and `group`, emitted as data attributes |
+| CSS | what those slugs and groups look like |
+
+The model never names a colour. The stylesheet never encodes a rule.
+
+Template emits identity, not appearance:
+
+```html
+<article class="card card--step"
+         data-state="{{ step.state.slug }}"
+         data-group="{{ step.state.group|lower }}">
+```
+
+One stylesheet owns the palette:
+
+```css
+/* the only file in the project that knows what a state looks like */
+.card--step { background: var(--state-bg); color: var(--state-fg); }
+
+/* group fallback: an unstyled new state still renders sensibly */
+[data-group="attention"] { --state-bg: …; --state-fg: …; }
+[data-group="due"]       { --state-bg: …; --state-fg: …; }
+[data-group="complete"]  { --state-bg: …; --state-fg: …; }
+
+/* per-state overrides, later in the cascade so they win */
+[data-state="blacklist"] { --state-bg: …; --state-fg: …; }
+```
+
+Three things fall out of this that the GAS version could not do:
+
+- Adding a state is a data change. It renders in its group's colours
+  immediately, with no CSS written, and no broken card.
+- Dark mode is a media query, not a second set of columns.
+- Changing the palette never touches the database.
+
+**The tradeoff, stated plainly:** in the sheet you recoloured a state by
+painting a cell. Here it takes a CSS edit and a deploy. That is a real
+capability lost. It is the right trade for a palette that changes once a
+year, and the wrong one if state colours turn out to be something you
+fiddle with weekly — in which case the fix is a `theme` table read by a
+template tag, still keeping hex out of `State`. Not planned for now.
+
+Colour is the obvious case; the same split applies to the rest:
+
+| Concern | Lives in | Never in |
+|---------|----------|----------|
+| Field values, relationships | `jobs/models.py` | views, templates |
+| Sort rules (§4.5) | `jobs/ordering.py`, pure functions | views, templates, DB ordering hacks |
+| Validation, coercion | `jobs/forms.py` | views, models' `save()` |
+| Fetch and render | `jobs/views.py` | business rules |
+| Markup, data attributes | templates | branching on business rules |
+| Every colour, size, spacing | CSS | models, views, templates |
+
+Phase 2 keeps the sort key a pure function precisely so it can be
+tested without a database and cannot drift into a view.
+
 ## 7. UI
 
 One page, `GET /`. One row per opportunity.
@@ -293,7 +372,7 @@ One page, `GET /`. One row per opportunity.
 Each row scrolls horizontally on its own, so a long-running opportunity
 does not force the whole page sideways. The summary card stays pinned
 at the left edge while its steps scroll under it. Step cards carry
-their state's `bg`/`fg` as CSS custom properties emitted from the DB.
+`data-state` and `data-group`; CSS turns those into colours (§6.3).
 
 ### HTMX routes
 
@@ -346,6 +425,8 @@ Done when: `task qa` green in CI, `/healthz` returns 200 locally.
 - Tests for model defaults and constraints first.
 - `State`, `Opportunity`, `Step` + migrations.
 - Data migration seeding the 12 states from §6.1.
+- Guard test: `State` exposes no colour field, so the boundary in
+  §6.3 fails loudly rather than eroding.
 - Django admin registered for all three: a free CRUD backdoor while the
   real UI is being built, and a permanent escape hatch.
 - Fill in `docs/initial-context.md` (architecture, boundaries, the
@@ -371,9 +452,12 @@ by a named test.
 - Board view, row partial, summary card, step card.
 - Tailwind standalone CLI wired into `task dev` in watch mode.
 - Sticky summary + per-row horizontal scroll (§7).
-- State colours driven from the DB.
+- State palette in one stylesheet, keyed on `data-state` /
+  `data-group` (§6.3). Pick the palette fresh; the sheet's hex
+  values are not carried over.
 - Tests: view returns 200; steps render newest-first; a row with no
-  steps renders.
+  steps renders; cards emit `data-state` and `data-group`; a state
+  with no per-state CSS still renders in its group's colours.
 
 Done when: a sheet-shaped board renders from seeded data and looks
 right at phone width.
@@ -470,11 +554,12 @@ concurrently written WAL database.
 | SQLite writer lock under concurrent writes | WAL + `IMMEDIATE` transactions; a single user will not hit it |
 | Ordering rules ported subtly wrong | Phase 2 is test-first, with each rule in §4.5 named in a test |
 | Deploy clobbers the database | Data lives outside the deploy directory |
+| Recolouring a state now needs a deploy, not a click | Accepted (§6.3); revisit with a `theme` table if the palette turns out to change often |
 
 ## 12. Open questions
 
-- State hex colours (§6.1) are placeholders. Read the real ones off the
-  sheet header, or decide the placeholders are the new palette.
+- Palette: pick one in CSS at phase 3. The sheet's hex values are not
+  being carried over (§6.3) — they were a storage format, not a design.
 - `DEFAULT_STEP_STATE` is `UNREMARKABLE`, which is in group `COMPLETE`,
   the lowest rank. So a freshly created opportunity sorts to the
   *bottom* of the board, below everything with attention or due states.

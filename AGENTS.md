@@ -173,6 +173,20 @@ Activate directly if preferred:
 source .venv/bin/activate
 ```
 
+## Boundaries
+
+| Concern | Lives in | Never in |
+|---------|----------|----------|
+| Fields, relationships | `models.py` | views, templates |
+| Sort/ordering rules | `ordering.py`, pure functions | views, templates |
+| Validation, coercion | `forms.py` | views, `save()` |
+| Fetch and render | `views.py` | business rules |
+| Markup, data attributes | templates | business rules |
+| Colour, size, spacing | CSS | models, views, templates |
+
+The model layer knows nothing about how anything looks. If a hex value
+reaches `models.py`, the design is wrong — see `docs/plans/001` §6.3.
+
 ## Django
 
 - Migrations are committed; never edit a migration that has been applied
@@ -189,7 +203,10 @@ source .venv/bin/activate
 
 - HTMX is vendored in `static/`, never loaded from a CDN
 - Tailwind via the standalone CLI binary — no npm, no `package.json`
-- State colours come from the DB, not hardcoded CSS
+- No colour, size or spacing in Python. Models, views and templates
+  carry identity (`data-state`, `data-group`); CSS decides appearance
+- State palette lives in one stylesheet, with a `data-group` fallback so
+  an unstyled state still renders
 - Layout contract: summary card sticky at `left: 0`, steps newest-first
   to its right, each opportunity row scrolls horizontally on its own
 
