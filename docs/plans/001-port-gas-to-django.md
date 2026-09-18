@@ -27,12 +27,24 @@ Django app that:
 
 | # | Decision | Choice |
 |---|----------|--------|
-| D1 | Language / framework | Python + Django 5.x + HTMX |
+| D1 | Language / framework | Python 3.14 + Django 6.x + HTMX |
 | D2 | Store | SQLite, file outside the repo directory |
 | D3 | Remote access | Public domain, Caddy reverse proxy, TLS via Let's Encrypt |
 | D4 | Data | Start fresh. Old sheet stays as a read-only archive |
 | D5 | Auth gate | Caddy `basic_auth`. No auth code in Django |
 | D6 | Deploy | GitHub Actions, SSH to VPS, `git pull` + migrate + restart |
+
+### Notes on D1
+
+Python 3.14 rules out the Django 5.2 LTS line, which tops out at 3.13,
+so this is Django 6.x. The cost is that 6.0 is not an LTS release:
+security fixes run about a year rather than three, and staying current
+means a major upgrade sooner. For a single-user app that gets touched
+regularly, that is a fine trade — the alternative is pinning Python
+back to 3.13 to sit on the LTS.
+
+Confirm both version floors against the Django release notes when
+scaffolding in phase 0 rather than trusting this table.
 
 ### Notes on D5
 
@@ -947,13 +959,16 @@ every PR.
 
 ### Phase 0 — Scaffolding
 
-- `uv init`, Python 3.13, Django, pytest, pytest-django, ruff, ty.
+- `uv init`, Python 3.14, Django, pytest, pytest-django, ruff, ty.
 - `Taskfile.yml` with `task dev`, `task test`, `task qa`
   (`ruff check` + `ruff format --check` + `ty` + `pytest`).
 - Add ruff and ty hooks to `.pre-commit-config.yaml`, which currently
   has no Python linters.
 - `config/` project, `jobs/` app, `/healthz` returning 200.
 - `.github/workflows/ci.yml` running `task qa` on PRs and `main`.
+
+Pin `requires-python = ">=3.14"` in `pyproject.toml` and use the same
+version in the CI matrix and on the VPS, so the three cannot drift.
 
 Done when: `task qa` green in CI, `/healthz` returns 200 locally.
 
