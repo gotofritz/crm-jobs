@@ -208,6 +208,113 @@ No decision changes. Two details for the port, though:
   fields is an obvious improvement and deliberately not done now —
   noted in §13.
 
+### 4.9 Cell packing, precisely
+
+Reference for the later import (§13). Not built now. Written while the
+sample export is at hand, because this is the knowledge that rots.
+
+Two formats exist and an importer has to accept both: the one the GAS
+code writes, and the one the sample actually contains (§4.8).
+
+**Column 1 — opportunity head**
+
+```
+code:      company " / " position "\n\n" comments
+observed:  company "\n\n" position "\n\n" comments
+```
+
+Rule: split on `\n\n`, at most three parts. If the first part contains
+`" / "`, split it into company and position and the rest is comments.
+Otherwise part 0 is company, part 1 is position, part 2 is comments.
+`position` may be several lines — the sample carries a job title plus a
+location-and-salary line.
+
+**Column 2 — opportunity body**
+
+```
+code:      date "\n\n" source "\n"   contact
+observed:  date "\n"   source "\n\n" contact
+```
+
+Rule: drop blank lines, then take them in order — date, source, and
+whatever remains joined as contact. The separators differ between the
+two formats but the line order does not, so ignoring blank lines makes
+the difference disappear.
+
+**Columns 3+ — steps**
+
+```
+code:      date " __ " time "\n\n" title "\n" contact "\n\n" comments
+observed:  date " __ " time "\n"   title "\n" contact "\n\n" comments
+```
+
+Rule: first line splits on `" __ "` into date and optional time. The
+remainder splits on its first `\n\n` into a head block and comments.
+In the head block the first line is the title and the rest is contact.
+
+**The one real ambiguity.** When a step has no contact, the blank line
+lands in a different place and the contact and comments become
+indistinguishable. In the sample, step 4 reads:
+
+```
+2025-07-11 __ 10:05
+Scheduling interview
+
+Maya Richardson
+```
+
+Structurally that parses as an empty contact and a comment of
+`"Maya Richardson"`, which is wrong. No format-level rule can fix it.
+What works cheaply: collect the contacts already seen elsewhere on the
+same opportunity, and when a step's contact is empty and its whole
+comment matches one of them, treat it as the contact. That recovers
+step 4 correctly. Anything it cannot resolve should be left for review
+rather than guessed.
+
+### 4.10 Mapping to the new model
+
+| Sheet | New model |
+|-------|-----------|
+| row | one `Opportunity` |
+| col 1 → company | `Opportunity.company` |
+| col 1 → position | `Opportunity.position` |
+| col 1 → comments | `Opportunity.comments` |
+| col 2 → date | `Opportunity.date` |
+| col 2 → source | `Opportunity.source` |
+| col 2 → contact | `Opportunity.contact` |
+| col N≥3 | one `Step`, `opportunity` FK |
+| step date | `Step.date` |
+| step time | `Step.time`, `NULL` when absent or `":"` |
+| step title | `Step.title` |
+| step contact | `Step.contact` |
+| step comments | `Step.comments` |
+| cell background colour | `Step.state` — **not in a CSV export** |
+| column index | nothing; ordering re-derives from `date` |
+| sheet (a `Pool`) | `archived_at`, set on import |
+
+Two of those need saying out loud.
+
+**Column index carries no data.** It encodes only "newest leftmost",
+and the sample's dates descend strictly left to right, so ordering is
+fully recoverable from `date` alone. `Step` needs no position field.
+
+**State does not survive a CSV export** (§4.8). Three ways to deal with
+that, to be chosen when the import is actually built:
+
+- Read cell backgrounds through the Sheets API instead of CSV. Full
+  fidelity, costs a one-off authenticated script.
+- Import from CSV and give every imported step one state, accepting the
+  loss. These rows are archived and only reachable by search, so the
+  loss may not matter.
+- Infer from the title text — the sample's newest step is titled
+  `REJECTED`, and outcome words do appear there. Fuzzy; at best a
+  fallback for the newest step of each row.
+
+The unpacking rules above were checked against the sample export: every
+field extracted correctly, dates strictly descending, no step left
+without a date, title or contact. One row is not a corpus, so treat the
+rules as validated in shape rather than proven exhaustively.
+
 ## 5. Target architecture
 
 ```
@@ -807,6 +914,21 @@ UI (§6.5). Nothing in this plan should get in its way:
   weight to carry for a personal tracker.
 - Results reuse the existing row partial, so the summary-plus-steps
   layout works in search with no new templates.
+
+### Import of the old sheets
+
+Wanted, deliberately not now. §4.9 and §4.10 hold the packing rules and
+the field mapping, validated against the sample export.
+
+Decisions deferred to when it is built:
+
+- How to recover `Step.state`, per the three options in §4.10.
+- What `archived_at` becomes. There is no such timestamp in the sheet.
+  The newest step date of each opportunity approximates when it went
+  dormant and is better than the import time, which would collapse
+  every generation of archive into one moment.
+- Whether unresolved contact/comment ambiguities block the import or
+  get flagged for review afterwards.
 
 ### Possible later, not committed
 
