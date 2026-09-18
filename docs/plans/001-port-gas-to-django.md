@@ -162,6 +162,52 @@ disappear entirely — `archived_at` already orders archived
 opportunities by when they were put away, which is what the
 generations were approximating.
 
+### 4.8 What the sample export shows
+
+`clasp/Crm-clasp-2 - Sheet2.csv` is one exported opportunity row. Three
+things came out of checking it against the code above.
+
+**Steps really are newest-first.** Left to right: 2025-07-21, 07-18,
+07-15, 07-11, 07-08. Confirms §4.4 and the layout in §7.
+
+**The stored text does not match the parser.** Rebuilding the regexps
+from §4.2 and running them over the row: all three cell types fail to
+match. `metadataHead` expects a literal `" / "` between company and
+position that is nowhere in the cell; `metadataBody` and the step cells
+have single newlines where the code expects doubled ones. A failed
+match means `loadTextDataFromSheet` returns early and every field keeps
+its default, so such a row would read back as `????` / `[TBC]`.
+
+Either the sheet drifted from the code, or these cells were typed and
+pasted by hand rather than entered through the form — the job
+description in the sample is clearly pasted from a job ad. The cause
+does not much matter. What it shows is that the packed-string format is
+not actually load-bearing, which is the §4.2 fragility argument turning
+up in real data.
+
+**A CSV export cannot carry state at all.** A step's state is its
+cell's background colour (§4.1), and CSV has no formatting, so the
+export drops it entirely. Nothing in the sample says whether any step
+is `DUE`, `GHOSTED` or `ACCEPTED`. Recovering that would need the
+Sheets API to read cell backgrounds.
+
+This is the §6.3 argument made concrete: data encoded as presentation
+survives only inside the tool that drew it. It also confirms D4 — a
+"start fresh" decision made for convenience turns out to be the only
+cheap option, since a CSV-based import would silently produce rows with
+default fields and no states.
+
+No decision changes. Two details for the port, though:
+
+- The opportunity `comments` field holds the whole job ad — 1870
+  characters in this one sample. The summary card has to cope with
+  that (§7).
+- `position` carries more than a job title: `"Staff Software Engineer -
+  Distributed AI\nBased in Edinburgh, remote. £125k"`. Location and
+  salary are in there by convention. Splitting them into their own
+  fields is an obvious improvement and deliberately not done now —
+  noted in §13.
+
 ## 5. Target architecture
 
 ```
@@ -527,6 +573,11 @@ archived count in the header and nothing else about the archive.
 .card--step      { flex: 0 0 16rem; }
 ```
 
+The summary card collapses `comments` to a few lines behind a native
+`<details>`, because it holds the pasted job ad — 1870 characters in
+the sample export (§4.8) — and an 18rem card cannot show that inline.
+No JavaScript needed for the toggle.
+
 Each row scrolls horizontally on its own, so a long-running opportunity
 does not force the whole page sideways. The summary card stays pinned
 at the left edge while its steps scroll under it. Step cards carry
@@ -617,7 +668,8 @@ by a named test.
   `data-group`.
 - Tests: view returns 200; steps render newest-first; a row with no
   steps renders; cards emit `data-state` and `data-group`; a state
-  with no per-state CSS still renders in its group's colours; every
+  with no per-state CSS still renders in its group's colours; a 2000
+  character comment does not blow out the summary card; every
   pair in §6.4 clears 4.5:1, asserted by a contrast test so a later
   tweak cannot quietly break legibility.
 
@@ -758,6 +810,10 @@ UI (§6.5). Nothing in this plan should get in its way:
 
 ### Possible later, not committed
 
+- Split `location` and `salary` out of `position` (§4.8). They are
+  already there by convention, and separate fields make them
+  filterable. Left out of the port to keep the model a like-for-like
+  move; worth doing once search exists.
 - Dark mode: a media query over §6.4, no model change.
 - Per-state colour editing without a deploy: a `theme` table read by a
   template tag, keeping hex out of `State`. Only if the palette turns
