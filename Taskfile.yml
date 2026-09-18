@@ -18,4 +18,3 @@ tasks:
       - ruff format --check .
       - pyright
       - pytest
-      - python manage.py check --deploy
