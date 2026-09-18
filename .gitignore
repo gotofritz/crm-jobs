@@ -1,0 +1,10 @@
+.venv
+db.sqlite3
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+.pytest_cache/
+.ruff_cache/
+.python-version
+main.py

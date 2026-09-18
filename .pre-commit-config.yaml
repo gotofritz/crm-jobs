@@ -38,8 +38,20 @@ repos:
     rev: v0.24.2
     hooks:
       - id: toml-sort-fix
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.8
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
   - repo: local
     hooks:
+      - id: pyright
+        name: pyright
+        entry: pyright
+        language: system
+        types: [python]
+        pass_filenames: false
       - id: commitizen
         name: commitizen
         entry: cz check
