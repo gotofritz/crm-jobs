@@ -309,7 +309,7 @@ the shape allows.
 | Sheet | New model |
 |-------|-----------|
 | row | one `Opportunity` |
-| col 1 → company | `Company`, by `get_or_create` on name |
+| col 1 → company | `Company`, by name (§6.9); url, LinkedIn, head office and sector left blank — the sheet has none of them |
 | col 1 → position | `Opportunity.title`, free text (§6.8) |
 | col 1 → comments | `Opportunity.comments` |
 | col 2 → date | `Opportunity.date` |
@@ -406,8 +406,17 @@ That is not a reason to keep it flat. Company, contact and source are
 real entities that recur across opportunities, so they get tables.
 
 ```python
+class Sector(models.Model):
+    name = models.CharField(max_length=100, unique=True)   # see §6.10
+
 class Company(models.Model):
     name = models.CharField(max_length=200, unique=True)
+    url = models.URLField(blank=True, default="")
+    linkedin_url = models.URLField(blank=True, default="")
+    head_office = models.CharField(max_length=200, blank=True, default="")
+    sector = models.ForeignKey(Sector, null=True, blank=True,
+                               related_name="companies",
+                               on_delete=models.SET_NULL)
 
 class Contact(models.Model):
     name = models.CharField(max_length=200)          # deliberately not unique
@@ -476,6 +485,16 @@ class Step(models.Model):
   layout: it is the third tie-break in §4.5.
 - `GROUP_RANK` lives next to the enum, not in the database. It is a
   business rule, and a rule that has never changed.
+
+Every `Company` field but the name is optional. A company is usually
+created mid-flow while entering an opportunity, when all that is known
+is its name; the rest gets filled in later or never. Requiring any of
+it would turn adding an opportunity into a research task.
+
+`head_office` stays free text for the reason `title` does (§6.8): the
+values vary in shape — `"Edinburgh"`, `"Edinburgh, UK"`, `"Remote"` —
+and nothing in the app filters on it yet. If it ever needs filtering it
+becomes a `Location` foreign key, which is a migration, not a redesign.
 
 Deletion rules are deliberate. `Company` is `PROTECT`, because deleting
 a company should not silently take its opportunities with it. `source`
@@ -813,8 +832,53 @@ save. Typing a new company creates it; typing an existing one reuses
 it. No second screen, no lookup step, and the "minimum of fuss" goal
 survives the normalised model.
 
-The Django admin registered in phase 1 covers the rare case of merging
-a duplicate or fixing a typo.
+Free creation invites near-duplicates — `Fintech`, `FinTech` and
+`fintech` as three rows. Resolve on the way in rather than cleaning up
+later:
+
+```python
+def by_name(model, raw):
+    name = " ".join(raw.split())          # collapse stray whitespace
+    return (model.objects.filter(name__iexact=name).first()
+            or model.objects.create(name=name))
+```
+
+First spelling entered wins; later variants match it. On SQLite
+`iexact` is ASCII-only, which is fine for these names and worth knowing
+before someone relies on it for accented ones.
+
+The Django admin registered in phase 1 covers what that cannot catch —
+merging `Meta` and `Facebook`, or fixing a typo that was saved first
+and is now the canonical spelling.
+
+### 6.10 Extensible enums are tables
+
+`Sector`, `Source` and `State` are all the same shape: a small
+controlled vocabulary that has to grow without a deploy. Django's
+`TextChoices` cannot do that — adding a sector would mean editing an
+enum, writing a migration and shipping. So all three are tables.
+
+`Group` stays a `TextChoices` by contrast, because it is not a
+vocabulary. It is three fixed buckets with a ranking rule attached
+(§6.2), and adding a fourth would mean deciding where it ranks — a code
+change either way.
+
+The test is whether a new value needs a decision in code. A new sector
+does not. A new group does.
+
+Note what this does *not* pull back in: `State` is a table because the
+vocabulary is data, while its colours stay in CSS (§6.3). Being
+extensible at runtime and being presentation-free are separate
+questions, and the answer differs per field.
+
+Starter sectors, to be extended by typing:
+
+```
+AI / ML · Consultancy / agency · Developer tools · E-commerce ·
+Education · Energy · Fintech · Gaming · Government / public sector ·
+Healthtech · Logistics · Media / publishing · Non-profit · Retail ·
+SaaS · Telecoms · Travel · Other
+```
 
 ## 7. UI
 
@@ -898,9 +962,10 @@ Done when: `task qa` green in CI, `/healthz` returns 200 locally.
 - Tests for model defaults and constraints first.
 - `Company`, `Contact`, `Employment`, `Source`, `State`, `Opportunity`,
   `Step` + migrations.
-- Data migration seeding the 12 states from §6.1, and a starter set of
-  sources (LinkedIn, Wellfound, referral, direct, recruiter) — a
-  picklist, not a fixed vocabulary; new ones are created on the fly.
+- Data migration seeding the 12 states from §6.1, a starter set of
+  sources (LinkedIn, Wellfound, referral, direct, recruiter) and the
+  sectors in §6.10 — picklists, not fixed vocabularies; new ones are
+  created on the fly.
 - `Employment.on(day)` with tests for the four `NULL` combinations
   (§6.7): open start, open end, both open, both set.
 - Guard test: `State` exposes no colour field, so the boundary in
@@ -948,9 +1013,11 @@ right at phone width.
 ### Phase 4 — Mutations
 
 - All routes in §7, with `ModelForm`s.
-- Company, contact and source entered as free text backed by a
-  `<datalist>`, resolved with `get_or_create` on save (§6.9). No
-  separate management screens.
+- Company, contact, source and sector entered as free text backed by a
+  `<datalist>`, resolved case-insensitively on save (§6.9). No separate
+  management screens.
+- Company's url, LinkedIn, head office and sector are optional and edited
+  from the opportunity form; a company created mid-flow needs only a name.
 - Creating an opportunity also creates its first step (§4.4).
 - Archive, unarchive, and archive-everything-live (§6.5).
 - After a create, highlight the new row and scroll it into view (§6.6).
@@ -960,7 +1027,8 @@ right at phone width.
   updates rather than duplicates (the §4.6 bug, as a regression test),
   plus that the board excludes archived opportunities and that
   unarchiving puts one back, plus that typing an existing company reuses
-  it rather than creating a second one, plus that a step keeps several
+  it rather than creating a second one, plus that `FinTech` and
+  `fintech` resolve to one `Sector`, plus that a step keeps several
   contacts.
 
 Done when: everything the GAS menus did is doable in the browser.
