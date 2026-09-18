@@ -202,11 +202,11 @@ No decision changes. Two details for the port, though:
 - The opportunity `comments` field holds the whole job ad — 1870
   characters in this one sample. The summary card has to cope with
   that (§7).
-- `position` carries more than a job title: `"Staff Software Engineer -
-  Distributed AI\nBased in Edinburgh, remote. £125k"`. Location and
-  salary are in there by convention. Splitting them into their own
-  fields is an obvious improvement and deliberately not done now —
-  noted in §13.
+- The sheet's `position` carries more than a job title: `"Staff Software
+  Engineer - Distributed AI\nBased in Edinburgh, remote. £125k"`.
+  Location and salary are in there by convention. It maps to
+  `Opportunity.title` and stays free text (§6.8); splitting out the
+  extra fields is noted in §13.
 
 ### 4.9 Cell packing, precisely
 
@@ -309,17 +309,17 @@ the shape allows.
 | Sheet | New model |
 |-------|-----------|
 | row | one `Opportunity` |
-| col 1 → company | `Opportunity.company` |
-| col 1 → position | `Opportunity.position` |
+| col 1 → company | `Company`, by `get_or_create` on name |
+| col 1 → position | `Opportunity.title`, free text (§6.8) |
 | col 1 → comments | `Opportunity.comments` |
 | col 2 → date | `Opportunity.date` |
-| col 2 → source | `Opportunity.source` |
-| col 2 → contact | `Opportunity.contact` |
+| col 2 → source | `Source`, by `get_or_create` on name |
+| col 2 → contact | `Contact`, by name — see below |
 | col N≥3 | one `Step`, `opportunity` FK |
 | step date | `Step.date` |
 | step time | `Step.time`, `NULL` when absent or `":"` |
 | step title | `Step.title` |
-| step contact | `Step.contact` |
+| step contact | `Step.contacts`, split on `", "` |
 | step comments | `Step.comments` |
 | cell background colour | `Step.state` — **not in a CSV export** |
 | column index | nothing; ordering re-derives from `date` |
@@ -330,6 +330,18 @@ Two of those need saying out loud.
 **Column index carries no data.** It encodes only "newest leftmost",
 and the sample's dates descend strictly left to right, so ordering is
 fully recoverable from `date` alone. `Step` needs no position field.
+
+**Contact identity is the import's hard part.** The sheet has names,
+not people. `"Maya Richardson"` appearing under two companies is either
+one recruiter who moved or two different people, and nothing in the
+export says which. Since `Contact.name` is deliberately not unique
+(§6.7), a naive `get_or_create` on name would merge strangers.
+
+The import should create one `Contact` per distinct name *per company*,
+and list the cross-company name collisions for a human to merge
+afterwards. That is the same "is it the same person?" question the
+autosuggest in §13 asks, arriving earlier, and it is a review step
+rather than a guess.
 
 **State does not survive a CSV export** (§4.8). Three ways to deal with
 that, to be chosen when the import is actually built:
@@ -389,7 +401,30 @@ parsing config. Record this in `docs/initial-context.md` in phase 1.
 
 ## 6. Data model
 
+The sheet flattened everything into text because a cell holds text.
+That is not a reason to keep it flat. Company, contact and source are
+real entities that recur across opportunities, so they get tables.
+
 ```python
+class Company(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+
+class Contact(models.Model):
+    name = models.CharField(max_length=200)          # deliberately not unique
+    notes = models.TextField(blank=True, default="")
+
+class Employment(models.Model):
+    """Who was where, when. One row per stint."""
+    contact = models.ForeignKey(Contact, related_name="employments",
+                                on_delete=models.CASCADE)
+    company = models.ForeignKey(Company, related_name="employments",
+                                on_delete=models.CASCADE)
+    started_on = models.DateField(null=True, blank=True)   # NULL = unknown
+    ended_on = models.DateField(null=True, blank=True)     # NULL = still there
+
+class Source(models.Model):
+    name = models.CharField(max_length=100, unique=True)   # LinkedIn, Wellfound
+
 class Group(models.TextChoices):
     ATTENTION = "ATTENTION"
     DUE = "DUE"
@@ -404,11 +439,15 @@ class State(models.Model):
     sort_order = models.PositiveIntegerField()    # tie-break, §4.5 rule 3
 
 class Opportunity(models.Model):
-    company = models.CharField(max_length=200)
-    position = models.CharField(max_length=200)
+    company = models.ForeignKey(Company, related_name="opportunities",
+                                on_delete=models.PROTECT)
+    title = models.CharField(max_length=200)      # free text, see §6.8
     date = models.DateField()
-    source = models.CharField(max_length=100, default="LinkedIn")
-    contact = models.CharField(max_length=200, default="(Contact unknown)")
+    source = models.ForeignKey(Source, null=True, blank=True,
+                               on_delete=models.SET_NULL)
+    contact = models.ForeignKey(Contact, null=True, blank=True,
+                                related_name="opportunities",
+                                on_delete=models.SET_NULL)
     comments = models.TextField(blank=True, default="")
     archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -421,7 +460,7 @@ class Step(models.Model):
     date = models.DateField()
     time = models.TimeField(null=True, blank=True)
     title = models.CharField(max_length=200, default="Applied via site")
-    contact = models.CharField(max_length=200, default="(Contact unknown)")
+    contacts = models.ManyToManyField(Contact, blank=True, related_name="steps")
     comments = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 ```
@@ -437,6 +476,13 @@ class Step(models.Model):
   layout: it is the third tie-break in §4.5.
 - `GROUP_RANK` lives next to the enum, not in the database. It is a
   business rule, and a rule that has never changed.
+
+Deletion rules are deliberate. `Company` is `PROTECT`, because deleting
+a company should not silently take its opportunities with it. `source`
+and `contact` are `SET_NULL`, because losing who referred you does not
+invalidate the application. `Step.opportunity` stays `CASCADE`: a step
+has no meaning without its opportunity.
+
 ### 6.1 Seed states
 
 Taken from the live sheet header row, in column order. `sort_order` is
@@ -485,8 +531,8 @@ model and the seeded data. Record the meaning here rather than
 renaming.
 
 `StatesManager.sortByGroup` carries a `TODO: calculate this by position
-in header row`. With `position` stored, group rank is derivable from
-the first position at which each group appears. Not worth doing: three
+in header row`. With `sort_order` stored, group rank is derivable from
+the first `sort_order` at which each group appears. Not worth doing: three
 groups, explicit ranking is clearer.
 
 ### 6.3 Where colour lives, and why not in the model
@@ -696,6 +742,80 @@ If it turns out to grate in real use, the clean fix is a distinct
 `APPLIED` state at a higher `sort_order` — a data change — not a
 special case inside the sort function.
 
+### 6.7 Contacts, companies and time
+
+`Contact.name` is **not unique**, and that is the point. Two people can
+share a name, and the app cannot tell them apart from a string. Making
+the column unique would quietly merge them the first time it happened.
+
+Employment is its own table because a contact moves. A recruiter who
+was at one company last year is at another now, and both facts stay
+true — the old opportunity should keep pointing at the person, not at
+a name frozen in place.
+
+**Open-ended stints are `NULL`, not a far-future date.** `NULL` on
+`ended_on` means "still there or not known to have left", which is
+exactly the truth. A sentinel like `9999-12-31` reads as a fact that
+was never established, and every query then has to know the magic
+value. `NULL` on `started_on` means the same for the other end.
+
+Asking who was at a company on a given day:
+
+```python
+class EmploymentQuerySet(models.QuerySet):
+    def on(self, day):
+        return self.filter(
+            Q(started_on__isnull=True) | Q(started_on__lte=day),
+            Q(ended_on__isnull=True) | Q(ended_on__gte=day),
+        )
+```
+
+Overlapping stints are allowed. Advising, contracting and gardening
+leave are all real, and a uniqueness constraint forbidding overlap
+would eventually be wrong. What is worth constraining is exact
+duplicates: `unique_together` on `(contact, company, started_on)`.
+
+`Step.contacts` is many-to-many because a step often involves several
+people — the sample has a technical interview with two. The step points
+at people, not at employments: for display you want the name, and
+"who is at this company now" is a separate question the `Employment`
+table already answers.
+
+### 6.8 Why `position` stays free text
+
+You listed `position` alongside company, contact and source as a
+foreign key. Company, contact and source earn their tables — each value
+recurs across opportunities, and each has attributes of its own.
+A job title does not. `"Staff Software Engineer - Distributed AI"` is
+used once and never again, so a `Position` table would hold one row per
+opportunity, add a join to every query, and add a create-a-position
+step to every form, in exchange for nothing.
+
+So it stays a `CharField`, renamed `title` to stop it reading like a
+foreign key. The sample also shows it carrying location and salary by
+convention (§4.8), which is another reason not to treat it as a clean
+key.
+
+The useful version of that idea is a coarse classification — `Backend
+Engineer`, `Staff Engineer`, `Engineering Manager` — which is
+low-cardinality, recurs, and is worth filtering by. That is a different
+column from the advertised title, and it is listed in §13 rather than
+built now.
+
+Override this if you disagree: it is one field and a migration.
+
+### 6.9 Entering data without a management UI
+
+Normalising usually drags in company and contact admin screens. It does
+not have to here. The forms keep a plain text input backed by a
+`<datalist>` of existing names, and the view does `get_or_create` on
+save. Typing a new company creates it; typing an existing one reuses
+it. No second screen, no lookup step, and the "minimum of fuss" goal
+survives the normalised model.
+
+The Django admin registered in phase 1 covers the rare case of merging
+a duplicate or fixing a typo.
+
 ## 7. UI
 
 One page, `GET /`. One row per live opportunity (§6.5), with an
@@ -776,16 +896,24 @@ Done when: `task qa` green in CI, `/healthz` returns 200 locally.
 ### Phase 1 — Models
 
 - Tests for model defaults and constraints first.
-- `State`, `Opportunity`, `Step` + migrations.
-- Data migration seeding the 12 states from §6.1.
+- `Company`, `Contact`, `Employment`, `Source`, `State`, `Opportunity`,
+  `Step` + migrations.
+- Data migration seeding the 12 states from §6.1, and a starter set of
+  sources (LinkedIn, Wellfound, referral, direct, recruiter) — a
+  picklist, not a fixed vocabulary; new ones are created on the fly.
+- `Employment.on(day)` with tests for the four `NULL` combinations
+  (§6.7): open start, open end, both open, both set.
 - Guard test: `State` exposes no colour field, so the boundary in
   §6.3 fails loudly rather than eroding.
-- Django admin registered for all three: a free CRUD backdoor while the
-  real UI is being built, and a permanent escape hatch.
+- Django admin registered for every model: a free CRUD backdoor while
+  the real UI is being built, and the place duplicate contacts and
+  companies get merged later (§6.9).
 - Fill in `docs/initial-context.md` (architecture, boundaries, the
   pydantic deviation from §5).
 
-Done when: states seeded, admin can create an opportunity with steps.
+Done when: states and sources seeded, admin can create an opportunity
+with steps, and a contact can be moved between companies without
+losing the opportunities that point at them.
 
 ### Phase 2 — Ordering
 
@@ -820,6 +948,9 @@ right at phone width.
 ### Phase 4 — Mutations
 
 - All routes in §7, with `ModelForm`s.
+- Company, contact and source entered as free text backed by a
+  `<datalist>`, resolved with `get_or_create` on save (§6.9). No
+  separate management screens.
 - Creating an opportunity also creates its first step (§4.4).
 - Archive, unarchive, and archive-everything-live (§6.5).
 - After a create, highlight the new row and scroll it into view (§6.6).
@@ -828,7 +959,9 @@ right at phone width.
   create-first-step behaviour, plus that editing the first opportunity
   updates rather than duplicates (the §4.6 bug, as a regression test),
   plus that the board excludes archived opportunities and that
-  unarchiving puts one back.
+  unarchiving puts one back, plus that typing an existing company reuses
+  it rather than creating a second one, plus that a step keeps several
+  contacts.
 
 Done when: everything the GAS menus did is doable in the browser.
 
@@ -964,9 +1097,30 @@ Decisions deferred to when it is built:
 - Nothing about malformed cells: they are cleaned in the sheet before
   import, and the importer reports rather than guesses (§4.9).
 
+### Contact autosuggest
+
+The reason `Employment` exists now. Once the data is there:
+
+- Adding a contact to a step suggests the people currently at that
+  opportunity's company — `company.employments.on(step.date)`, which
+  §6.7 already supports.
+- A typed name matching someone at a different company raises "is this
+  the same person?". Yes moves them: close the old `Employment` with an
+  `ended_on`, open a new one. No creates a second `Contact` with the
+  same name, which the schema allows on purpose.
+- Suggesting by the step's date rather than today matters for archived
+  opportunities, where "who was there then" is not "who is there now".
+
+None of this is built in the port. The schema is what the port has to
+get right, and it does.
+
 ### Possible later, not committed
 
-- Split `location` and `salary` out of `position` (§4.8). They are
+- A coarse role classification on `Opportunity` — `Backend Engineer`,
+  `Staff Engineer`, `Engineering Manager` — as a foreign key, separate
+  from the advertised `title` (§6.8). Low-cardinality and worth
+  filtering by, unlike the title itself.
+- Split `location` and `salary` out of `title` (§4.8). They are
   already there by convention, and separate fields make them
   filterable. Left out of the port to keep the model a like-for-like
   move; worth doing once search exists.
