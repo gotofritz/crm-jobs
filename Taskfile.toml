@@ -57,4 +57,4 @@ cmd = "python manage.py createsuperuser"
 
 [tool.poe.tasks.typecheck]
 help = "Type-check the project"
-cmd = "ty check src"
+cmd = "ty check src tests"

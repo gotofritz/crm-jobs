@@ -103,3 +103,10 @@ def test_deleting_a_contact_deletes_their_stints(company: Company, contact: Cont
     contact.delete()
 
     assert Employment.objects.count() == 0
+
+
+def test_a_stint_names_itself_by_its_person_and_company(company: Company, contact: Contact) -> None:
+    """The admin lists stints, and "Employment object (3)" says nothing (§6.9)."""
+    stint = Employment.objects.create(contact=contact, company=company, started_on=BEFORE)
+
+    assert str(stint) == "Ada Lovelace at Acme"

@@ -38,7 +38,12 @@ exclude_also = [
 ]
 
 [tool.coverage.run]
-omit = ["src/jobs/migrations/*"]
+omit = [
+  # Django writes these, and gunicorn is what runs them.
+  "src/config/asgi.py",
+  "src/config/wsgi.py",
+  "src/jobs/migrations/*"
+]
 
 [tool.poe]
 include = "Taskfile.toml"
@@ -54,10 +59,11 @@ pythonpath = [
   "src"
 ]
 testpaths = [
-  "src"
+  "tests"
 ]
 addopts = [
-  "--cov=src/jobs/",
+  "--cov=src/",
+  "--import-mode=importlib",
   "--cov-report=term",
   "--cov-report=html:coverage/html",
   "--cov-report=xml:coverage/coverage.xml",

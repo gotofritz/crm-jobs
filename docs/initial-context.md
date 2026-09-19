@@ -69,8 +69,9 @@ Code lives under `src/`, which is on the path via `pythonpath` in
 `pyproject.toml`:
 
 ```
-src/config/       settings, urls, wsgi
+src/config/       settings, environment readers, urls, wsgi
 src/jobs/         the one app: models, ordering, admin, views, templates
+tests/            mirrors src/, one directory per package
 static/           vendored htmx, compiled tailwind css
 deploy/           Caddyfile, systemd units, backup timer
 docs/             plans, archive, this file
@@ -79,6 +80,14 @@ clasp/            retired Google Apps Script source, reference only
 
 This is the one deviation from the layout in plan 001 §5, which put `config/`
 and `jobs/` at the repository root.
+
+Tests live in `tests/`, not beside the code the way `startapp` generates them.
+Two trees rather than one means the wheel built from `src/` carries no test
+code, and `--cov=src/` measures the application instead of measuring the tests
+along with it. pytest runs with `--import-mode=importlib`, so `tests/jobs/` and
+`tests/config/` need no `__init__.py` and two test modules may share a
+basename. `ty` checks both trees, and `tests/conftest.py` holds the shared
+fixtures.
 
 ### Data model
 
@@ -169,6 +178,9 @@ against.
   `src/jobs/migrations/`: Django writes those files, so checking them yields
   nothing but rules to suppress. They are still run, and what they produce is
   tested — `test_seed.py` asserts the seeded picklists.
+- **`wsgi.py` and `asgi.py` are outside coverage.** Four lines each, written by
+  `startproject` and executed by gunicorn rather than imported by anything.
+  Counting them as missed said nothing about the code.
 - **One scoped lint ignore**, in `.ruff.toml` with the reason inline: `ARG001`
   in `src/jobs/conftest.py`, because a pytest fixture requested by argument
   name is never referenced.
