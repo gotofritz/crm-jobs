@@ -7,7 +7,7 @@
 After installation (see [README](../README.md)), create a superuser:
 
 ```bash
-uv run python manage.py createsuperuser
+uv run poe superuser
 ```
 
 This creates a login for Django admin at `/admin/`.

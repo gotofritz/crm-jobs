@@ -17,9 +17,9 @@ sequence = [
   {cmd = "ruff format ."}
 ]
 
-[tool.poe.tasks.typecheck]
-help = "Type-check the project"
-cmd = "ty check src"
+[tool.poe.tasks.makemigrations]
+help = "Generate migrations for model changes"
+cmd = "python manage.py makemigrations"
 
 [tool.poe.tasks.migrate]
 help = "Apply database migrations"
@@ -32,3 +32,11 @@ sequence = [
   "typecheck",
   "test"
 ]
+
+[tool.poe.tasks.superuser]
+help = "Create a Django admin superuser"
+cmd = "python manage.py createsuperuser"
+
+[tool.poe.tasks.typecheck]
+help = "Type-check the project"
+cmd = "ty check src"

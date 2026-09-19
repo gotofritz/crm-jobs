@@ -32,13 +32,13 @@ tag_format = "v$version"
 update_changelog_on_bump = true
 version_provider = "pep621"
 
-[tool.coverage.run]
-omit = ["src/jobs/migrations/*"]
-
 [tool.coverage.report]
 exclude_also = [
   "if TYPE_CHECKING:"
 ]
+
+[tool.coverage.run]
+omit = ["src/jobs/migrations/*"]
 
 [tool.poe]
 include = "Taskfile.toml"
