@@ -25,11 +25,6 @@ exclude = [".venv", ".git", "clasp"]
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
 
-[tool.poe.tasks]
-dev = "python manage.py runserver"
-test = "pytest"
-lint = "ruff check ."
-format-check = "ruff format --check ."
-type-check = "pyright"
-qa = ["lint", "format-check", "type-check", "test"]
+[tool.poe]
+include = "Taskfile.toml"
 
