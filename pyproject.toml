@@ -5,7 +5,6 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
   "poethepoet>=0.48.0",
-  "pyright>=1.1.414",
   "ty"
 ]
 
@@ -40,9 +39,8 @@ exclude_also = [
 [tool.poe]
 include = "Taskfile.toml"
 
-[tool.pyright]
-include = ["src/config", "src/jobs"]
-exclude = [".venv", ".git", "clasp", "src"]
+[tool.uv]
+exclude-newer-package = { "ruff" = false }
 
 [tool.pytest.ini_options] # https://docs.pytest.org/en/latest/reference/reference.html#ini-options-ref
 DJANGO_SETTINGS_MODULE = "src.config.settings"

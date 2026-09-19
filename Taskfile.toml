@@ -3,5 +3,5 @@ dev = "python manage.py runserver"
 test = "pytest"
 lint = "ruff check ."
 format-check = "ruff format --check ."
-type-check = "pyright"
+type-check = "ty check src"
 qa = ["lint", "format-check", "type-check", "test"]
