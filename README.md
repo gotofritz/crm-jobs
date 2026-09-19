@@ -65,7 +65,7 @@ Visit `http://localhost:8000`
 ### Running Tests & Checks
 
 ```bash
-uv run poe dev       # runserver with auto-reload
+uv run poe dev       # sync, migrate, then runserver with auto-reload
 uv run poe migrate   # apply migrations, seeding states, sources and sectors
 uv run poe test      # pytest
 uv run poe qa        # all checks (lint, type, test)

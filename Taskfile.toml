@@ -1,6 +1,13 @@
 [tool.poe.tasks]
-dev = "python manage.py runserver"
 test = "pytest"
+
+[tool.poe.tasks.dev]
+help = "Sync, migrate, then run the development server"
+sequence = [
+  {cmd = "uv sync"},
+  "migrate",
+  {cmd = "python manage.py runserver"}
+]
 
 [tool.poe.tasks.lint]
 help = "Lint the project"
