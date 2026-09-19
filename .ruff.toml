@@ -138,3 +138,9 @@ fixable = ["ALL"]
 unfixable = []
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[lint.per-file-ignores]
+# Django writes migrations itself; its own format uses mutable class attributes.
+"src/jobs/migrations/*" = ["RUF012"]
+# pytest fixtures are requested by argument name, so `db` is never referenced.
+"src/jobs/conftest.py" = ["ARG001"]

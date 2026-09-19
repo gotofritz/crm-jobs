@@ -4,6 +4,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+  "django-types>=0.24.0",
   "poethepoet>=0.48.0",
   "ty"
 ]
