@@ -5,7 +5,8 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
   "poethepoet>=0.48.0",
-  "pyright>=1.1.414"
+  "pyright>=1.1.414",
+  "ty"
 ]
 
 [project]
@@ -17,9 +18,13 @@ requires-python = ">=3.14"
 dependencies = [
   "django>=6.1.1",
   "pytest>=9.1.1",
+  "pytest-cov>=4.1.0",
   "pytest-django>=4.14.0",
   "ruff>=0.16.8"
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/config", "src/jobs"]
 
 [tool.commitizen] # https://commitizen-tools.github.io/commitizen/config/
 bump_message = "bump(release): v$current_version → v$new_version"
@@ -36,29 +41,28 @@ exclude_also = [
 include = "Taskfile.toml"
 
 [tool.pyright]
-include = ["config", "jobs"]
-exclude = [".venv", ".git", "clasp"]
+include = ["src/config", "src/jobs"]
+exclude = [".venv", ".git", "clasp", "src"]
 
 [tool.pytest.ini_options] # https://docs.pytest.org/en/latest/reference/reference.html#ini-options-ref
-DJANGO_SETTINGS_MODULE = "config.settings"
+DJANGO_SETTINGS_MODULE = "src.config.settings"
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
 pythonpath = [
   ".",
-  "jobs"
+  "src"
 ]
 testpaths = [
-  "tests"
+  "src"
 ]
 addopts = [
-  "--cov=jobs/",
+  "--cov=src/jobs/",
   "--cov-report=term",
   "--cov-report=html:coverage/html",
   "--cov-report=xml:coverage/coverage.xml",
   "--junitxml=coverage/junit/test-results.xml",
   "--color=yes",
   "--strict-config",
-  "--strict-markers",
-  "--typeguard-packages=jobs"
+  "--strict-markers"
 ]
 
 [tool.pytest_env]

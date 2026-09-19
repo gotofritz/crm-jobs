@@ -30,7 +30,7 @@ exclude = [
 # Same as Black.
 line-length = 100
 indent-width = 4
-target-version = "py{{python_version | replace('.', '')}}"
+target-version = "py314"
 
 [format]
 # Like Black, use double quotes for strings.

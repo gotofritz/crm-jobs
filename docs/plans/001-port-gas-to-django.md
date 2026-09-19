@@ -419,64 +419,69 @@ real entities that recur across opportunities, so they get tables.
 
 ```python
 class Sector(models.Model):
-    name = models.CharField(max_length=100, unique=True)   # see §6.10
+    name = models.CharField(max_length=100, unique=True)  # see §6.10
+
 
 class Company(models.Model):
     name = models.CharField(max_length=200, unique=True)
     url = models.URLField(blank=True, default="")
     linkedin_url = models.URLField(blank=True, default="")
     head_office = models.CharField(max_length=200, blank=True, default="")
-    sector = models.ForeignKey(Sector, null=True, blank=True,
-                               related_name="companies",
-                               on_delete=models.SET_NULL)
+    sector = models.ForeignKey(
+        Sector, null=True, blank=True, related_name="companies", on_delete=models.SET_NULL
+    )
+
 
 class Contact(models.Model):
-    name = models.CharField(max_length=200)          # deliberately not unique
+    name = models.CharField(max_length=200)  # deliberately not unique
     notes = models.TextField(blank=True, default="")
+
 
 class Employment(models.Model):
     """Who was where, when. One row per stint."""
-    contact = models.ForeignKey(Contact, related_name="employments",
-                                on_delete=models.CASCADE)
-    company = models.ForeignKey(Company, related_name="employments",
-                                on_delete=models.CASCADE)
-    started_on = models.DateField(null=True, blank=True)   # NULL = unknown
-    ended_on = models.DateField(null=True, blank=True)     # NULL = still there
+
+    contact = models.ForeignKey(Contact, related_name="employments", on_delete=models.CASCADE)
+    company = models.ForeignKey(Company, related_name="employments", on_delete=models.CASCADE)
+    started_on = models.DateField(null=True, blank=True)  # NULL = unknown
+    ended_on = models.DateField(null=True, blank=True)  # NULL = still there
+
 
 class Source(models.Model):
-    name = models.CharField(max_length=100, unique=True)   # LinkedIn, Wellfound
+    name = models.CharField(max_length=100, unique=True)  # LinkedIn, Wellfound
+
 
 class Group(models.TextChoices):
     ATTENTION = "ATTENTION"
     DUE = "DUE"
     COMPLETE = "COMPLETE"
 
+
 GROUP_RANK = {Group.ATTENTION: 3, Group.DUE: 2, Group.COMPLETE: 1}
 
+
 class State(models.Model):
-    slug = models.SlugField(unique=True)          # "bad-feeling" — CSS hook
-    name = models.CharField(max_length=50)        # "BAD_FEELING" — display
+    slug = models.SlugField(unique=True)  # "bad-feeling" — CSS hook
+    name = models.CharField(max_length=50)  # "BAD_FEELING" — display
     group = models.CharField(max_length=20, choices=Group)
-    sort_order = models.PositiveIntegerField()    # tie-break, §4.5 rule 3
+    sort_order = models.PositiveIntegerField()  # tie-break, §4.5 rule 3
+
 
 class Opportunity(models.Model):
-    company = models.ForeignKey(Company, related_name="opportunities",
-                                on_delete=models.PROTECT)
-    title = models.CharField(max_length=200)      # free text, see §6.8
+    company = models.ForeignKey(Company, related_name="opportunities", on_delete=models.PROTECT)
+    title = models.CharField(max_length=200)  # free text, see §6.8
     date = models.DateField()
-    source = models.ForeignKey(Source, null=True, blank=True,
-                               on_delete=models.SET_NULL)
-    contact = models.ForeignKey(Contact, null=True, blank=True,
-                                related_name="opportunities",
-                                on_delete=models.SET_NULL)
+    source = models.ForeignKey(Source, null=True, blank=True, on_delete=models.SET_NULL)
+    contact = models.ForeignKey(
+        Contact, null=True, blank=True, related_name="opportunities", on_delete=models.SET_NULL
+    )
     comments = models.TextField(blank=True, default="")
     archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+
 class Step(models.Model):
-    opportunity = models.ForeignKey(Opportunity, related_name="steps",
-                                    on_delete=models.CASCADE)
+    opportunity = models.ForeignKey(Opportunity, related_name="steps", on_delete=models.CASCADE)
     state = models.ForeignKey(State, on_delete=models.PROTECT)
     date = models.DateField()
     time = models.TimeField(null=True, blank=True)
@@ -697,8 +702,11 @@ is set. That is the whole mechanism.
 
 ```python
 class OpportunityQuerySet(models.QuerySet):
-    def live(self):     return self.filter(archived_at__isnull=True)
-    def archived(self): return self.exclude(archived_at__isnull=True)
+    def live(self):
+        return self.filter(archived_at__isnull=True)
+
+    def archived(self):
+        return self.exclude(archived_at__isnull=True)
 ```
 
 Explicit querysets, not a default manager that hides archived rows. A
@@ -850,9 +858,8 @@ later:
 
 ```python
 def by_name(model, raw):
-    name = " ".join(raw.split())          # collapse stray whitespace
-    return (model.objects.filter(name__iexact=name).first()
-            or model.objects.create(name=name))
+    name = " ".join(raw.split())  # collapse stray whitespace
+    return model.objects.filter(name__iexact=name).first() or model.objects.create(name=name)
 ```
 
 First spelling entered wins; later variants match it. On SQLite
