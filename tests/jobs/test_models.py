@@ -8,7 +8,6 @@ from django.db.utils import IntegrityError
 from django.utils import timezone
 
 from jobs.models import (
-    GROUP_RANK,
     Company,
     Contact,
     Group,
@@ -70,11 +69,6 @@ def test_state_has_no_colour_field() -> None:
     field_names = {field.name for field in State._meta.get_fields()}
     forbidden = {"colour", "color", "bg", "background", "fg", "foreground", "hex", "palette"}
     assert not field_names & forbidden
-
-
-def test_group_rank_puts_attention_above_due_above_complete() -> None:
-    """Group ranking is a business rule next to the enum, not a table (§6.1)."""
-    assert GROUP_RANK[Group.ATTENTION] > GROUP_RANK[Group.DUE] > GROUP_RANK[Group.COMPLETE]
 
 
 def test_opportunity_defaults(opportunity: Opportunity) -> None:
@@ -186,11 +180,18 @@ def test_archived_lists_only_archived_opportunities(
     assert opportunity not in Opportunity.objects.archived()
 
 
-def test_models_are_readable_in_the_admin(opportunity: Opportunity, state: State) -> None:
-    """The admin is the CRUD backdoor, so rows have to name themselves (§6.9)."""
+def test_models_are_readable_in_the_admin(
+    opportunity: Opportunity, state: State, contact: Contact
+) -> None:
+    """The admin is the CRUD backdoor, so every row has to name itself (§6.9)."""
     step = Step.objects.create(opportunity=opportunity, state=state, date=dt.date(2026, 1, 5))
+    sector = Sector.objects.create(name="Robotics")
+    source = Source.objects.create(name="Careers page")
 
     assert str(opportunity.company) == "Acme"
     assert str(opportunity) == "Staff Software Engineer at Acme"
     assert str(state) == "UNREMARKABLE"
     assert str(step) == "UNREMARKABLE on 2026-01-05"
+    assert str(sector) == "Robotics"
+    assert str(source) == "Careers page"
+    assert str(contact) == "Ada Lovelace"

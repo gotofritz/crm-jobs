@@ -68,8 +68,18 @@ Visit `http://localhost:8000`
 uv run poe dev       # sync, migrate, then runserver with auto-reload
 uv run poe migrate   # apply migrations, seeding states, sources and sectors
 uv run poe test      # pytest
-uv run poe qa        # all checks (lint, type, test)
+uv run poe qa        # all checks (lint, type, test, deployment checklist)
+uv run poe check-deploy  # Django's deployment checklist on production settings
 ```
+
+### Configuration
+
+Development needs no configuration. Anything host-specific comes from the
+environment — see the table in
+[docs/initial-context.md](./docs/initial-context.md#settings-and-secrets).
+`DJANGO_SECRET_KEY` is required as soon as `DJANGO_DEBUG=false`: the process
+refuses to start without it, so the marked-insecure development key in this
+repository cannot reach production.
 
 ## Development
 
