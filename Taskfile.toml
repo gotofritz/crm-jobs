@@ -1,6 +1,16 @@
 [tool.poe.tasks]
 test = "pytest"
 
+[tool.poe.tasks.check-deploy]
+help = "Run Django's deployment checklist against production-shaped settings"
+shell = '''
+DJANGO_DEBUG=false \
+DJANGO_ALLOWED_HOSTS=crm.example.com \
+DJANGO_CSRF_TRUSTED_ORIGINS=https://crm.example.com \
+DJANGO_SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(64))") \
+python manage.py check --deploy --fail-level WARNING
+'''
+
 [tool.poe.tasks.dev]
 help = "Sync, migrate, then run the development server"
 sequence = [
@@ -37,7 +47,8 @@ help = "Runs all code quality checks"
 sequence = [
   "lint",
   "typecheck",
-  "test"
+  "test",
+  "check-deploy"
 ]
 
 [tool.poe.tasks.superuser]

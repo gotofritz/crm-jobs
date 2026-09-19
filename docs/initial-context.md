@@ -14,9 +14,40 @@ This creates a login for Django admin at `/admin/`.
 
 ### Database
 
-Development uses SQLite at `./db.sqlite3` (gitignored). `migrate` also seeds
-the picklists — twelve states, five sources, eighteen sectors — so a fresh
-checkout has a usable board without a fixture step.
+Development uses SQLite at `./db.sqlite3` (gitignored), at the repository root
+rather than inside `src/`; `DJANGO_DB_PATH` moves it, and the VPS points it at
+`/var/lib/crm-jobs/db.sqlite3`. The connection runs WAL with
+`synchronous=NORMAL` and `transaction_mode=IMMEDIATE`, so a read can run while
+a write is in flight and a write takes its lock up front rather than half way
+through a transaction.
+
+`migrate` also seeds the picklists — twelve states, five sources, eighteen
+sectors — so a fresh checkout has a usable board without a fixture step.
+
+### Settings and secrets
+
+Nothing host-specific lives in the repo. `src/config/settings.py` reads it from
+the environment through `src/config/env.py`, whose readers are deliberately
+strict: `DJANGO_DEBUG=maybe` stops the process rather than quietly picking a
+side, and a missing `DJANGO_SECRET_KEY` with `DEBUG` off stops it at boot
+rather than on the first signed cookie.
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `DJANGO_DEBUG` | `true` | `1/true/yes/on` or `0/false/no/off` |
+| `DJANGO_SECRET_KEY` | a dev key marked `django-insecure-` | required once `DEBUG` is off |
+| `DJANGO_ALLOWED_HOSTS` | empty | comma separated |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | empty | comma separated, with scheme |
+| `DJANGO_HSTS_SECONDS` | `31536000` (one year) | ignored while `DEBUG` is on |
+| `DJANGO_DB_PATH` | `./db.sqlite3` | `/var/lib/crm-jobs/db.sqlite3` on the VPS |
+
+Secure cookies and HSTS follow `DEBUG`, so production is one switch rather than
+six. `uv run poe qa` ends with `check-deploy`, which runs Django's deployment
+checklist against production-shaped settings at `--fail-level WARNING`. CI runs
+`poe qa`, so the checklist cannot go quietly red.
+
+What is still outstanding from plan 001 phase 5 is WhiteNoise and
+`collectstatic`; they wait for phase 3, when there are static files to serve.
 
 ### Architecture
 
@@ -141,3 +172,8 @@ against.
 - **One scoped lint ignore**, in `.ruff.toml` with the reason inline: `ARG001`
   in `src/jobs/conftest.py`, because a pytest fixture requested by argument
   name is never referenced.
+- **One silenced Django check**, `security.W008`. It asks Django to redirect
+  http to https. Caddy already does that one hop earlier, and Django repeating
+  it would either achieve nothing or loop, unless Django were also told to
+  trust a proxy header (plan 001 §5). `SECURE_SSL_REDIRECT` therefore stays
+  `False`, and a test asserts the two halves stay in step.
