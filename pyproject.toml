@@ -4,6 +4,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+  "django-types>=0.24.0",
   "poethepoet>=0.48.0",
   "ty"
 ]
@@ -36,6 +37,9 @@ exclude_also = [
   "if TYPE_CHECKING:"
 ]
 
+[tool.coverage.run]
+omit = ["src/jobs/migrations/*"]
+
 [tool.poe]
 include = "Taskfile.toml"
 
@@ -65,6 +69,9 @@ addopts = [
 
 [tool.pytest_env]
 ENVIRONMENT = "test"
+
+[tool.ty.src]
+exclude = ["src/jobs/migrations"]
 
 [tool.ty.terminal]
 output-format = "full"

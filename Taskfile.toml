@@ -1,7 +1,49 @@
 [tool.poe.tasks]
-dev = "python manage.py runserver"
 test = "pytest"
-lint = "ruff check ."
-format-check = "ruff format --check ."
-type-check = "ty check src"
-qa = ["lint", "format-check", "type-check", "test"]
+
+[tool.poe.tasks.dev]
+help = "Sync, migrate, then run the development server"
+sequence = [
+  {cmd = "uv sync"},
+  "migrate",
+  {cmd = "python manage.py runserver"}
+]
+
+[tool.poe.tasks.lint]
+help = "Lint the project"
+sequence = [
+  {cmd = "ruff check ."},
+  {cmd = "ruff format . --check"}
+]
+ignore_fail = "return_non_zero"
+
+[tool.poe.tasks.lint-fix]
+help = "Lint the project and fix issues"
+sequence = [
+  {cmd = "ruff check . --fix"},
+  {cmd = "ruff format ."}
+]
+
+[tool.poe.tasks.makemigrations]
+help = "Generate migrations for model changes"
+cmd = "python manage.py makemigrations"
+
+[tool.poe.tasks.migrate]
+help = "Apply database migrations"
+cmd = "python manage.py migrate"
+
+[tool.poe.tasks.qa]
+help = "Runs all code quality checks"
+sequence = [
+  "lint",
+  "typecheck",
+  "test"
+]
+
+[tool.poe.tasks.superuser]
+help = "Create a Django admin superuser"
+cmd = "python manage.py createsuperuser"
+
+[tool.poe.tasks.typecheck]
+help = "Type-check the project"
+cmd = "ty check src"
