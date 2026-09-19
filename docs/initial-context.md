@@ -39,7 +39,7 @@ Code lives under `src/`, which is on the path via `pythonpath` in
 
 ```
 src/config/       settings, urls, wsgi
-src/jobs/         the one app: models, admin, views, templates
+src/jobs/         the one app: models, ordering, admin, views, templates
 static/           vendored htmx, compiled tailwind css
 deploy/           Caddyfile, systemd units, backup timer
 docs/             plans, archive, this file
@@ -64,8 +64,9 @@ Seven tables plus one `TextChoices` enum, described in full in plan 001 §6:
   no manager filters archived rows away silently.
 - `Step` — something that happened, in one `State`.
 - `State` — the vocabulary (`slug`, `name`, `group`, `sort_order`), extensible
-  as data. `Group` stays an enum with `GROUP_RANK` next to it, because adding
-  a group means deciding where it ranks — a code change either way.
+  as data. `Group` stays an enum rather than a table, because code branches on
+  the three buckets. Where they rank is a sort rule, so `GROUP_RANK` lives in
+  `ordering.py` rather than beside the enum.
 
 Deletion rules are deliberate: `Opportunity.company` and `Step.state` are
 `PROTECT`, `source` and `contact` are `SET_NULL`, `Step.opportunity` and
@@ -74,6 +75,34 @@ Deletion rules are deliberate: `Opportunity.company` and `Step.state` are
 Every model is registered in the Django admin. That is the CRUD backdoor while
 the real UI is built, the place duplicate contacts and companies get merged,
 and — until search exists — the only way to look at archived opportunities.
+
+### Ordering
+
+`src/jobs/ordering.py` ports the sort rules of the retired GAS app (plan 001
+§4.5) and is the one piece of real domain logic here. It defines two orders,
+and they are not the same order:
+
+- **Steps inside an opportunity** — by group rank descending, then by
+  `date` + `time`: ascending for `ATTENTION` and `DUE`, descending for
+  `COMPLETE`. The inversion is deliberate. With something pending, the oldest
+  is the most urgent; with nothing pending, only the most recently touched is
+  worth looking at (plan 001 §6.2).
+- **Opportunities on the board** — keyed on the step that sort leaves at the
+  front. An opportunity with no steps sorts first, then group rank descending,
+  then the state's `sort_order` ascending, then the same inverted date rule.
+
+The functions take steps, not querysets, so every rule is tested without a
+database. `Opportunity.objects.live().in_board_order()` is the entry point. It
+returns a list rather than a queryset, because the date tie-break flips on the
+state's group and SQL cannot express that in one `ORDER BY`. It prefetches
+`steps__state`, so the sort costs three queries however many rows there are,
+and a test asserts that count. Archived rows have their own order,
+`in_archive_order()`, most recently archived first (plan 001 §6.5).
+
+Keeping `GROUP_RANK` here leaves `ordering.py` importing nothing from the
+models at runtime: the dependency runs one way, models → ordering. A test
+asserts the ranking covers every `Group`, so adding a group without deciding
+where it ranks fails loudly.
 
 ### Boundaries
 
@@ -92,8 +121,8 @@ group. It never knows what either looks like: templates emit `data-state` and
 has no colour field, and a test asserts it stays that way — if a hex value
 reaches `models.py`, the design is wrong (plan 001 §6.3).
 
-`ordering.py` and `forms.py` arrive in phases 2 and 4; the rows above are the
-contract they are written against.
+`forms.py` arrives in phase 4; the rows above are the contract it is written
+against.
 
 ### Deviations from AGENTS.md
 

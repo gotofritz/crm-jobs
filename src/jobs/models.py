@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, ClassVar
 from django.db import models
 from django.db.models import Q
 
+from jobs.ordering import sort_opportunities
+
 if TYPE_CHECKING:
     from django.db.models.manager import RelatedManager
 
@@ -20,10 +22,6 @@ class Group(models.TextChoices):
     ATTENTION = "ATTENTION"
     DUE = "DUE"
     COMPLETE = "COMPLETE"
-
-
-# A business rule, not data: adding a group means deciding where it ranks (§6.10).
-GROUP_RANK = {Group.ATTENTION: 3, Group.DUE: 2, Group.COMPLETE: 1}
 
 
 class Sector(models.Model):
@@ -147,6 +145,24 @@ class OpportunityQuerySet(models.QuerySet["Opportunity"]):
     def archived(self) -> "OpportunityQuerySet":
         """Opportunities that have been archived."""
         return self.exclude(archived_at__isnull=True)
+
+    def in_board_order(self) -> "list[Opportunity]":
+        """Board order (§4.5).
+
+        A list, not a queryset: the date tie-break inverts on the state's group,
+        which SQL cannot express in one ORDER BY. The prefetch is what keeps the
+        sort from costing a query per row.
+        """
+        rows = self.select_related("company").prefetch_related("steps__state")
+        return sort_opportunities(rows)
+
+    def in_archive_order(self) -> "OpportunityQuerySet":
+        """Archived opportunities, most recently put away first (§6.5).
+
+        Urgency ranking is meaningless once nothing is pending; "which burst was
+        this" is the only question left.
+        """
+        return self.order_by("-archived_at")
 
 
 class Opportunity(models.Model):

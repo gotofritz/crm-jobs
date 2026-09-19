@@ -8,7 +8,6 @@ from django.db.utils import IntegrityError
 from django.utils import timezone
 
 from jobs.models import (
-    GROUP_RANK,
     Company,
     Contact,
     Group,
@@ -70,11 +69,6 @@ def test_state_has_no_colour_field() -> None:
     field_names = {field.name for field in State._meta.get_fields()}
     forbidden = {"colour", "color", "bg", "background", "fg", "foreground", "hex", "palette"}
     assert not field_names & forbidden
-
-
-def test_group_rank_puts_attention_above_due_above_complete() -> None:
-    """Group ranking is a business rule next to the enum, not a table (§6.1)."""
-    assert GROUP_RANK[Group.ATTENTION] > GROUP_RANK[Group.DUE] > GROUP_RANK[Group.COMPLETE]
 
 
 def test_opportunity_defaults(opportunity: Opportunity) -> None:
