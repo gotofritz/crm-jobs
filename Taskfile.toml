@@ -21,6 +21,10 @@ sequence = [
 help = "Type-check the project"
 cmd = "ty check src"
 
+[tool.poe.tasks.migrate]
+help = "Apply database migrations"
+cmd = "python manage.py migrate"
+
 [tool.poe.tasks.qa]
 help = "Runs all code quality checks"
 sequence = [
