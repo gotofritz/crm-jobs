@@ -63,9 +63,9 @@ Visit `http://localhost:8000`
 ### Running Tests & Checks
 
 ```bash
-uv run task dev      # runserver with auto-reload
-uv run task test     # pytest
-uv run task qa       # all checks (lint, type, test)
+uv run poe dev       # runserver with auto-reload
+uv run poe test      # pytest
+uv run poe qa        # all checks (lint, type, test)
 ```
 
 ## Development

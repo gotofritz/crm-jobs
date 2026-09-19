@@ -27,14 +27,5 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Lint with ruff
-        run: uv run ruff check .
-
-      - name: Format check with ruff
-        run: uv run ruff format --check .
-
-      - name: Type check with pyright
-        run: uv run pyright
-
-      - name: Run tests
-        run: uv run pytest
+      - name: Run QA checks
+        run: uv run poe qa
