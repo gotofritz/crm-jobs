@@ -1,5 +1,7 @@
 # CRM Jobs
 
+![Coverage](https://raw.githubusercontent.com/gotofritz/crm-jobs/badges/crm-jobs/coverage.svg)
+
 Self-hosted job application tracker. Django + HTMX, SQLite, no SPA.
 
 ## Table of Contents

@@ -29,3 +29,22 @@ jobs:
 
       - name: Run QA checks
         run: uv run poe qa
+
+      - name: Generate coverage badge
+        if: github.ref == 'refs/heads/main'
+        run: |
+          pip install coverage-badge
+          coverage-badge -i coverage/coverage.xml -o coverage.svg
+
+      - name: Push coverage badge
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin badges:badges
+          git checkout badges
+          mkdir -p crm-jobs
+          cp coverage.svg crm-jobs/
+          git add crm-jobs/coverage.svg
+          git commit --allow-empty -m "chore: update coverage badge"
+          git push origin badges
