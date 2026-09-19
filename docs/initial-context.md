@@ -105,7 +105,10 @@ contract they are written against.
   a type error. The package is stubs only — no runtime code, no Node. Reverse
   accessors it still cannot infer (`opportunity.steps` and friends) are
   declared under `if TYPE_CHECKING:` on the model that owns the far side.
-- **Two scoped lint ignores**, both in `.ruff.toml` with the reason inline:
-  `RUF012` in `src/jobs/migrations/` because Django writes those files itself,
-  and `ARG001` in `src/jobs/conftest.py` because a pytest fixture requested by
+- **Migrations are outside qa.** ruff, ty and coverage all skip
+  `src/jobs/migrations/`: Django writes those files, so checking them yields
+  nothing but rules to suppress. They are still run, and what they produce is
+  tested — `test_seed.py` asserts the seeded picklists.
+- **One scoped lint ignore**, in `.ruff.toml` with the reason inline: `ARG001`
+  in `src/jobs/conftest.py`, because a pytest fixture requested by argument
   name is never referenced.
