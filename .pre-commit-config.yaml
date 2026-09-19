@@ -38,8 +38,28 @@ repos:
     rev: v0.24.2
     hooks:
       - id: toml-sort-fix
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.8
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
   - repo: local
     hooks:
+      - id: lint-fix
+        name: lint-fix
+        entry: uv run poe lint-fix
+        require_serial: true
+        language: system
+        pass_filenames: false
+        types: [ python ]
+      - id: qa
+        name: qa
+        entry: uv run poe qa
+        require_serial: true
+        language: system
+        pass_filenames: false
+        types: [ python ]
       - id: commitizen
         name: commitizen
         entry: cz check

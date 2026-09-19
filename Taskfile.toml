@@ -1,0 +1,7 @@
+[tool.poe.tasks]
+dev = "python manage.py runserver"
+test = "pytest"
+lint = "ruff check ."
+format-check = "ruff format --check ."
+type-check = "ty check src"
+qa = ["lint", "format-check", "type-check", "test"]

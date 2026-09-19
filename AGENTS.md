@@ -9,8 +9,7 @@
 ## Project Rules
 
 - Use `gh` for all GitHub operations
-  (web sessions without `gh`: use the GitHub MCP tools instead)
-- Use `task` for workflow discovery
+- Use `poe` for workflow discovery (task runner via poethepoet)
 - Run commands from project root
 
 ## Plans
@@ -58,7 +57,7 @@ Required flow:
 2. Confirm correct failure
 3. Implement minimal fix
 4. Refactor with tests green
-5. Run `task qa` before PR
+5. Run `uv run poe qa` before PR
 
 Tasks:
 
@@ -108,6 +107,13 @@ If an open PR exists that covers the same area, commit directly to its branch in
 - Include tests for behavior changes
 - Update relevant docs
 - Ensure CI passes
+
+### Title & Body
+
+- Title: Conventional Commits format (`feat:`, `fix:`, `docs:`, etc.)
+- Title: ≤ 50 chars
+- Body: concise summary of changes, not implementation details
+- Body: reference issues with `Closes #N` when relevant
 
 ## Code Standards
 
