@@ -7,4 +7,6 @@ dist/
 .pytest_cache/
 .ruff_cache/
 .python-version
+.coverage
+coverage/
 main.py
