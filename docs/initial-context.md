@@ -24,6 +24,12 @@ through a transaction.
 `migrate` also seeds the picklists — twelve states, five sources, eighteen
 sectors — so a fresh checkout has a usable board without a fixture step.
 
+There are two aliases, `default` and `demo`, built by one function so they
+cannot drift apart. `demo` is `./demo.sqlite3`, moved by `DJANGO_DEMO_DB_PATH`,
+and it exists so `manage.py import_sheet --demo` can pick a database by name
+rather than mutate a path after Django has started. Nothing else uses it: under
+`poe demo`, `DJANGO_DB_PATH` already points `default` at the same file.
+
 ### Settings and secrets
 
 Nothing host-specific lives in the repo. `src/config/settings.py` reads it from
@@ -40,6 +46,7 @@ rather than on the first signed cookie.
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | empty | comma separated, with scheme |
 | `DJANGO_HSTS_SECONDS` | `31536000` (one year) | ignored while `DEBUG` is on |
 | `DJANGO_DB_PATH` | `./db.sqlite3` | `/var/lib/crm-jobs/db.sqlite3` on the VPS; `poe demo` pins it to `./demo.sqlite3` |
+| `DJANGO_DEMO_DB_PATH` | `./demo.sqlite3` | the `demo` alias, which only `import_sheet --demo` reads |
 
 Secure cookies and HSTS follow `DEBUG`, so production is one switch rather than
 six. `uv run poe qa` ends with `check-deploy`, which runs Django's deployment
@@ -194,6 +201,39 @@ not the same database, and it cannot be: Django runs SQLite tests against
 `file:memorydb_default?mode=memory&cache=shared`, which exists only inside the
 pytest process and only for the length of the run. `demo.sqlite3` is the
 file-backed equivalent for a browser to look at.
+
+### Importing the old sheet
+
+`manage.py import_sheet <csv> [--demo] [--dry-run]` reads a CSV export of the
+retired Google Sheet into the tables (`docs/plans/003-import-the-sheet.md`). It
+is split in three, and the split is the point:
+
+| Module | Knows about | Does not know about |
+|--------|-------------|---------------------|
+| `src/jobs/sheet.py` | the exported text, the two packing formats, the state table | the ORM |
+| `src/jobs/importer.py` | the models, the transaction, the alias `--demo` picks | the file, or that CSV exists |
+| `management/commands/import_sheet.py` | arguments, refusals, the report | either of the above's rules |
+
+The parser is therefore testable without a database and the writer without a
+file.
+
+Three behaviours worth knowing before changing any of it:
+
+- **Bad cells stop everything.** A cell fitting neither packing format is
+  reported with its row and column, and nothing is written — not even the rows
+  that parsed. The sheet is fixed, re-exported and re-run. Guessing at a
+  malformed cell would mangle a comment that happens to name somebody.
+- **A step's state is a guess.** A CSV export cannot carry it: it was the cell's
+  background colour. `state_for` infers it from the title against one ordered
+  table, falls back to `unremarkable`, and every single inference is printed so
+  a `--dry-run` shows what a run would decide before it decides it.
+- **Contact identity is per company.** `Contact.name` is not unique on purpose,
+  so one name under two companies becomes two people, each with an `Employment`
+  at their own company, and the collision is listed for a human rather than
+  resolved.
+
+`--dry-run` runs the real write inside a savepoint and rolls it back, so the
+preview cannot differ from the thing it previews.
 
 ### Ordering
 
@@ -513,6 +553,8 @@ fails if a hex value appears in any `.py` or `.html` file under `src/`.
 | Sort/ordering rules | `src/jobs/ordering.py`, pure functions | views, templates, DB ordering hacks |
 | Validation, coercion | `src/jobs/forms.py` | views, models' `save()` |
 | Fetch and render | `src/jobs/views.py` | business rules |
+| Unpacking the old sheet | `src/jobs/sheet.py`, pure functions | the ORM |
+| Writing an import | `src/jobs/importer.py` | the file it came from |
 | Markup, data attributes | templates | business rules |
 | Colour, size, spacing | CSS | models, views, templates |
 

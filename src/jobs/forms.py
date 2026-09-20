@@ -16,7 +16,7 @@ must not leave a half-created company behind.
 from typing import Any, ClassVar, TypeVar
 
 from django import forms
-from django.db import models
+from django.db import DEFAULT_DB_ALIAS, models
 
 from jobs.models import Company, Contact, Note, Opportunity, Sector, Source, Step
 
@@ -97,7 +97,7 @@ EDITABLE: dict[type[models.Model], set[str]] = {
 }
 
 
-def by_name(model: type[M], raw: str) -> M | None:
+def by_name(model: type[M], raw: str, *, using: str = DEFAULT_DB_ALIAS) -> M | None:
     """Resolve free text to a picklist row, creating it when it is new (§6.9).
 
     The first spelling entered wins: a later `FINTECH` matches the stored
@@ -107,11 +107,15 @@ def by_name(model: type[M], raw: str) -> M | None:
 
     On SQLite `iexact` is ASCII-only, which is fine for these names and worth
     knowing before anyone relies on it for accented ones (§6.9).
+
+    `using` is here for the sheet importer, which resolves the same names against
+    whichever database `--demo` picked (plan 003 §5). A form always means the one
+    the request is being served from.
     """
     name = " ".join(raw.split())
     if not name:
         return None
-    objects = model._default_manager
+    objects = model._default_manager.db_manager(using)
     return objects.filter(name__iexact=name).first() or objects.create(name=name)
 
 

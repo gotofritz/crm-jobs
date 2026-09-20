@@ -6,7 +6,6 @@ actually contains it (§4.1), because the importer has to accept both.
 """
 
 import datetime as dt
-from pathlib import Path
 
 import pytest
 
@@ -190,25 +189,6 @@ def test_step_with_more_blocks_than_the_shape_allows_is_a_problem() -> None:
     """The third thing §4.2 reports. A step is a head block and a comment, no more."""
     with pytest.raises(CellError, match="blocks"):
         parse_step("2025-07-21 __ 16:42\nREJECTED\nMaya\n\nThey moved on\n\nand said so")
-
-
-SAMPLE = Path(__file__).resolve().parents[2] / "clasp" / "Crm-clasp-2 - Sheet2.csv"
-
-# The one bad cell in the sample (§4.2), and the fix the checklist asks for.
-STRAY_BLANK = "Scheduling interview\n\nMaya Richardson"
-FIXED = "Scheduling interview\nMaya Richardson"
-
-
-@pytest.fixture(scope="session")
-def sample_csv() -> str:
-    """The one exported opportunity the packing rules were validated against (§4.1)."""
-    return SAMPLE.read_text()
-
-
-@pytest.fixture(scope="session")
-def cleaned_csv(sample_csv: str) -> str:
-    """The same export with §4.2's stray blank line taken out, as the checklist says."""
-    return sample_csv.replace(STRAY_BLANK, FIXED)
 
 
 def test_a_state_definition_row_is_recognised() -> None:

@@ -79,6 +79,20 @@ uv run poe qa        # all checks (lint, type, test, deployment checklist)
 uv run poe check-deploy  # Django's deployment checklist on production settings
 ```
 
+### Importing the old sheet
+
+```bash
+uv run python manage.py import_sheet export.csv --dry-run  # report, write nothing
+uv run python manage.py import_sheet export.csv --demo     # into demo.sqlite3
+uv run python manage.py import_sheet export.csv            # into db.sqlite3
+```
+
+Reads a CSV export of the retired Google Sheet. A cell that fits neither of the
+sheet's packing formats is reported with its row and column and nothing is
+written, so the loop is fix, re-export, re-run. Step states are inferred from
+step titles — a CSV cannot carry them — and every guess is printed. See
+[docs/plans/003-import-the-sheet.md](./docs/plans/003-import-the-sheet.md).
+
 ### Configuration
 
 Development needs no configuration. Anything host-specific comes from the
