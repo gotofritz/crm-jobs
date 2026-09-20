@@ -10,6 +10,15 @@
  * an arrow either side, so nothing has to be swiped sideways. On a laptop it
  * drives the same arrows a card at a time, standing in for the scrollbar the
  * stylesheet hides.
+ *
+ * At both widths it clamps a summary's notes to the first two, or four lines,
+ * whichever comes first, and offers a toggle for the rest — but only when the
+ * clamp is actually hiding something.
+ *
+ * It also moves the job description's control. Without it the block carries its
+ * own bar; with it, a laptop hides bar and closed block alike and the summary
+ * card's button opens it instead. The two controls drive the same `<details>`,
+ * so `aria-expanded` follows the element rather than a count of clicks.
  */
 (() => {
   "use strict";
@@ -19,6 +28,11 @@
   const PHONE = window.matchMedia("(max-width: 30rem)");
   const STILL = window.matchMedia("(prefers-reduced-motion: reduce)");
 
+  // Matches `.notes__item:nth-child(n + 3)` in assets/board.css. The stylesheet
+  // decides how much of the list shows; this only decides whether there is
+  // anything left over to offer.
+  const NOTES_SHOWN = 2;
+
   const root = document.documentElement;
 
   function setExpanded(card, expanded) {
@@ -26,6 +40,48 @@
     card
       .querySelector("[data-summary-toggle]")
       .setAttribute("aria-expanded", String(expanded));
+
+    // A collapsed card has no height to measure, so the notes inside it can
+    // only be sized once it is open.
+    const block = expanded ? card.querySelector("[data-notes]") : null;
+    if (block) {
+      syncNotes(block);
+    }
+  }
+
+  function setNotes(block, expanded) {
+    block.toggleAttribute("data-notes-collapsed", !expanded);
+    const toggle = block.querySelector("[data-notes-toggle]");
+    toggle.setAttribute("aria-expanded", String(expanded));
+    toggle.textContent = expanded ? "Fewer notes" : "All notes";
+  }
+
+  /* Whether the clamp is holding anything back, asked while it is on.
+   *
+   * Two limits, and only one of them can be counted: a third note is arithmetic,
+   * but four lines is a height the browser works out, and one long note reaches
+   * it before a third note does. */
+  function spareNotes(block) {
+    const list = block.querySelector("[data-notes-list]");
+    return list.children.length > NOTES_SHOWN || list.scrollHeight > list.clientHeight + 1;
+  }
+
+  function syncNotes(block) {
+    setNotes(block, false);
+    const spare = spareNotes(block);
+
+    block.querySelector("[data-notes-toggle]").hidden = !spare;
+    if (!spare) {
+      setNotes(block, true);
+    }
+  }
+
+  function describes(button) {
+    return document.getElementById(button.getAttribute("aria-controls"));
+  }
+
+  function describedBy(block) {
+    return document.querySelector(`[aria-controls="${block.id}"]`);
   }
 
   function cards(steps) {
@@ -118,11 +174,29 @@
     scrollTrack(steps, target === undefined ? at : target);
   }
 
+  /* `toggle` fires whichever control opened the block, including the bar the
+   * phone keeps, so the button is written from the element every time. */
+  function onDetails(event) {
+    const block = event.target;
+    if (!(block instanceof Element) || !block.matches("[data-description]")) {
+      return;
+    }
+
+    const button = describedBy(block);
+    if (button) {
+      button.setAttribute("aria-expanded", String(block.open));
+    }
+  }
+
   function apply() {
     document
       .querySelectorAll("[data-summary]")
       .forEach((card) => setExpanded(card, !PHONE.matches));
     document.querySelectorAll("[data-steps]").forEach((steps) => showStep(steps, 0));
+    document.querySelectorAll("[data-description-toggle]").forEach((button) => {
+      button.hidden = false;
+      button.setAttribute("aria-expanded", String(describes(button).open));
+    });
   }
 
   function onScroll(event) {
@@ -140,6 +214,22 @@
       return;
     }
 
+    const notes = event.target.closest("[data-notes-toggle]");
+    if (notes) {
+      const block = notes.closest("[data-notes]");
+      setNotes(block, block.hasAttribute("data-notes-collapsed"));
+      return;
+    }
+
+    const description = event.target.closest("[data-description-toggle]");
+    if (description) {
+      const block = describes(description);
+      // Only the element is set here; `onDetails` is what writes the button
+      // back, so the phone's own bar and this one leave the same state behind.
+      block.open = !block.open;
+      return;
+    }
+
     const arrow = event.target.closest("[data-steps-prev], [data-steps-next]");
     if (arrow) {
       move(arrow.closest("[data-steps]"), arrow.hasAttribute("data-steps-prev") ? -1 : 1);
@@ -149,8 +239,9 @@
   root.classList.add("has-js");
   // Delegated, so rows swapped in later are wired without re-running any of this.
   document.addEventListener("click", onClick);
-  // `scroll` does not bubble, so this listens on the way down instead.
+  // Neither `scroll` nor `toggle` bubbles, so these listen on the way down.
   document.addEventListener("scroll", onScroll, true);
+  document.addEventListener("toggle", onDetails, true);
   PHONE.addEventListener("change", apply);
 
   if (document.readyState === "loading") {

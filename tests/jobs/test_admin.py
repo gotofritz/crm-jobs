@@ -9,6 +9,7 @@ from jobs.models import (
     Company,
     Contact,
     Employment,
+    Note,
     Opportunity,
     Sector,
     Source,
@@ -19,7 +20,7 @@ from jobs.models import (
 
 @pytest.mark.parametrize(
     "model",
-    [Company, Contact, Employment, Opportunity, Sector, Source, State, Step],
+    [Company, Contact, Employment, Note, Opportunity, Sector, Source, State, Step],
 )
 def test_every_model_is_registered(model: type[Model]) -> None:
     """Every model is reachable, including the archive until search exists (§6.5)."""
@@ -36,7 +37,11 @@ def test_an_opportunity_and_its_first_step_are_created_together(
             "company": str(company.pk),
             "title": "Staff Software Engineer",
             "date": "2026-01-05",
-            "comments": "",
+            "job_description": "",
+            "notes-TOTAL_FORMS": "0",
+            "notes-INITIAL_FORMS": "0",
+            "notes-MIN_NUM_FORMS": "0",
+            "notes-MAX_NUM_FORMS": "1000",
             "steps-TOTAL_FORMS": "1",
             "steps-INITIAL_FORMS": "0",
             "steps-MIN_NUM_FORMS": "0",

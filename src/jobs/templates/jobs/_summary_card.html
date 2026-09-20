@@ -24,12 +24,31 @@
       {% endif %}
     </dl>
 
-    {% if opportunity.comments %}
-      {# The pasted job ad, collapsed so it cannot blow out an 18rem card (§4.8, §7). #}
-      <details class="card__notes">
-        <summary>Notes</summary>
-        <p>{{ opportunity.comments }}</p>
-      </details>
+    {% if opportunity.job_description %}
+      {# Opens the description block below the steps. `hidden` until the script #}
+      {# runs, because until then the block's own bar is the control (§7). #}
+      <button class="card__toggle" type="button" data-description-toggle
+              aria-expanded="false" aria-controls="description-{{ opportunity.pk }}" hidden>
+        Job description
+      </button>
+    {% endif %}
+
+    {% if opportunity.ordered_notes %}
+      {# Notes are rows, newest first, so the card prints a list rather than prose. #}
+      {# Every one of them shows without the script; the script clamps the list to #}
+      {# two notes or four lines and takes `hidden` off the toggle (§7). #}
+      <div class="notes" data-notes>
+        <ul class="notes__list" id="notes-{{ opportunity.pk }}" data-notes-list>
+          {% for note in opportunity.ordered_notes %}
+            <li class="notes__item">{{ note.body }}</li>
+          {% endfor %}
+        </ul>
+
+        <button class="card__toggle" type="button" data-notes-toggle
+                aria-expanded="true" aria-controls="notes-{{ opportunity.pk }}" hidden>
+          Fewer notes
+        </button>
+      </div>
     {% endif %}
   </div>
 </article>

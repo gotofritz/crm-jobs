@@ -13,14 +13,15 @@ from django.test import Client
 from pytest_django.fixtures import Settings
 
 from jobs.demo import DEMO_COMPANIES, seed_demo
-from jobs.models import Company, Contact, Opportunity, Step
+from jobs.models import Company, Contact, Note, Opportunity, Step
 
 
-def counts() -> tuple[int, int, int, int]:
+def counts() -> tuple[int, int, int, int, int]:
     """The rows the demo writes."""
     return (
         Opportunity.objects.count(),
         Step.objects.count(),
+        Note.objects.count(),
         Company.objects.count(),
         Contact.objects.count(),
     )
@@ -90,3 +91,33 @@ def test_the_board_renders_the_demo(demo_board: list[Opportunity]) -> None:
         assert opportunity.title in html
 
     assert f"{len(demo_board)} live, 1 archived" in html
+
+
+@pytest.mark.usefixtures("db")
+def test_seeding_writes_job_descriptions_and_notes() -> None:
+    """The row's two new blocks are only worth looking at on rows that carry them."""
+    seed_demo()
+
+    assert Opportunity.objects.exclude(job_description="").count() >= 3
+    assert Note.objects.count() >= 6
+    assert Opportunity.objects.filter(notes__isnull=True).exists()
+
+
+@pytest.mark.usefixtures("db")
+def test_one_row_carries_more_notes_than_the_board_shows() -> None:
+    """Two notes are shown and the rest are behind a toggle, so a row needs more (§7)."""
+    seed_demo()
+
+    assert max(row.notes.count() for row in Opportunity.objects.all()) >= 3
+
+
+@pytest.mark.usefixtures("db")
+def test_demo_notes_are_dated_by_hand() -> None:
+    """Written in one instant they would all share a timestamp, leaving the order to pk."""
+    seed_demo()
+    busiest = max(Opportunity.objects.all(), key=lambda row: row.notes.count())
+
+    written = [note.created_at for note in busiest.ordered_notes]
+
+    assert written == sorted(written, reverse=True)
+    assert len(set(written)) == len(written)

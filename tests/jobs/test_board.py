@@ -14,7 +14,7 @@ from django.test import Client
 from django.utils import timezone
 from pytest_django.fixtures import DjangoAssertNumQueries
 
-from jobs.models import Company, Group, Opportunity, State, Step
+from jobs.models import Company, Group, Note, Opportunity, State, Step
 
 BOARD_URL = "/"
 
@@ -22,6 +22,9 @@ _DETAILS = re.compile(r"<details\b.*?</details>", re.DOTALL)
 # The track holds `<article>` cards and no nested `<div>`, so this stops at its
 # own closing tag.
 _TRACK = re.compile(r"<div class=\"opportunity__track\"[^>]*>(.*?)</div>", re.DOTALL)
+_ROW = re.compile(r"<section class=\"opportunity\"[^>]*>(.*?)</section>", re.DOTALL)
+# The summary card holds no nested `<article>`, so this stops at its own tag.
+_SUMMARY = re.compile(r"<article class=\"card card--summary\"[^>]*>(.*?)</article>", re.DOTALL)
 
 
 def render_board() -> str:
@@ -127,8 +130,9 @@ def test_no_template_comment_reaches_the_page(opportunity: Opportunity) -> None:
     Every partial has to be on the page for this to mean anything, so the row
     needs a step and a comment as well as a summary card.
     """
-    opportunity.comments = "a pasted job ad"
+    opportunity.job_description = "a pasted job ad"
     opportunity.save()
+    Note.objects.create(opportunity=opportunity, body="not sure about this")
     add_step(opportunity, slug="going-well", date="2026-02-01")
 
     html = render_board()
@@ -170,21 +174,21 @@ def test_a_step_in_the_default_state_prints_no_state_name(opportunity: Opportuni
     assert html.count('class="card__subtitle"') == 1
 
 
-def test_a_long_comment_is_collapsed_behind_a_details(opportunity: Opportunity) -> None:
-    """The summary card holds the pasted job ad — 1870 characters in the sample (§4.8, §7)."""
-    opportunity.comments = "lorem ipsum " * 167
+def test_a_long_job_description_is_collapsed_behind_a_details(opportunity: Opportunity) -> None:
+    """The ad is 1870 characters in the sample export, so it opens rather than sits open (§4.8)."""
+    opportunity.job_description = "lorem ipsum " * 167
     opportunity.save()
 
     html = render_board()
 
-    collapsed = [block for block in _DETAILS.findall(html) if opportunity.comments in block]
+    collapsed = [block for block in _DETAILS.findall(html) if opportunity.job_description in block]
 
-    assert len(opportunity.comments) > 2000
-    assert collapsed, "a 2000 character comment has to sit behind a <details>"
+    assert len(opportunity.job_description) > 2000
+    assert collapsed, "a 2000 character job description has to sit behind a <details>"
 
 
 @pytest.mark.usefixtures("opportunity")
-def test_a_row_with_no_comment_has_nothing_to_expand() -> None:
+def test_a_row_with_no_job_description_has_nothing_to_expand() -> None:
     """An empty `<details>` is a control that does nothing."""
     assert "<details" not in render_board()
 
@@ -204,10 +208,68 @@ def test_the_board_shows_live_rows_and_counts_the_archived(company: Company) -> 
 def test_the_board_costs_the_same_however_many_rows_it_has(
     company: Company, django_assert_num_queries: DjangoAssertNumQueries
 ) -> None:
-    """Rows, steps, states, and the archived count — four queries, not four per row (§4.5)."""
+    """Rows, steps, states, notes and the archived count — five, not five per row (§4.5)."""
     for index in range(3):
         row = add_opportunity(company, title=f"row {index}")
         add_step(row, slug="due", date="2026-01-01")
 
-    with django_assert_num_queries(4):
+    with django_assert_num_queries(5):
         render_board()
+
+
+def test_the_job_description_opens_a_row_below_the_steps(opportunity: Opportunity) -> None:
+    """An 18rem summary cannot hold a pasted ad, and the steps must not be pushed down (§7)."""
+    opportunity.job_description = "We are looking for an experienced engineer."
+    opportunity.save()
+    add_step(opportunity, slug="going-well", date="2026-02-01", title="panel")
+
+    row = _ROW.search(render_board())
+
+    assert row is not None
+    assert "opportunity__description" in row[1]
+    assert row[1].index("opportunity__description") > row[1].index("opportunity__steps")
+
+
+def test_the_job_description_is_not_in_the_summary_card(opportunity: Opportunity) -> None:
+    """It is the row's own block, not a fact about the application (§7)."""
+    opportunity.job_description = "We are looking for an experienced engineer."
+    opportunity.save()
+
+    summary = _SUMMARY.search(render_board())
+
+    assert summary is not None
+    assert opportunity.job_description not in summary[1]
+
+
+def test_notes_render_as_a_bullet_list_newest_first(opportunity: Opportunity) -> None:
+    """A note is a row, so the card prints a list of them, in `ordered_notes` order (§6.3)."""
+    for day, body in ((2, "applied on a whim"), (28, "still nothing"), (14, "recruiter called")):
+        Note.objects.create(
+            opportunity=opportunity,
+            body=body,
+            created_at=dt.datetime(2026, 2, day, 9, 0, tzinfo=dt.UTC),
+        )
+
+    html = render_board()
+    newest_first = ("still nothing", "recruiter called", "applied on a whim")
+
+    assert "<ul" in html
+    assert [html.index(body) for body in newest_first] == sorted(
+        html.index(body) for body in newest_first
+    )
+
+
+def test_notes_are_in_the_summary_card(opportunity: Opportunity) -> None:
+    """They belong to the application, not to any one step, so they sit with its facts."""
+    Note.objects.create(opportunity=opportunity, body="not sure about this")
+
+    summary = _SUMMARY.search(render_board())
+
+    assert summary is not None
+    assert "not sure about this" in summary[1]
+
+
+@pytest.mark.usefixtures("opportunity")
+def test_a_row_with_no_notes_renders_no_list() -> None:
+    """An empty bullet list is a heading with nothing under it."""
+    assert "notes__list" not in render_board()
