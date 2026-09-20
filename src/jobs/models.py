@@ -1,4 +1,4 @@
-"""Domain model for the jobs CRM — see docs/plans/001-port-gas-to-django.md §6.
+"""Domain model for the jobs CRM — see the archived plan 001 §6.
 
 The model layer knows that a step has a state and that a state belongs to a
 group. It never knows what any of that looks like: colour lives in CSS (§6.3).

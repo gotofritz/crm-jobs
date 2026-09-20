@@ -191,7 +191,7 @@ source .venv/bin/activate
 | Colour, size, spacing | CSS | models, views, templates |
 
 The model layer knows nothing about how anything looks. If a hex value
-reaches `models.py`, the design is wrong — see `docs/plans/001` §6.3.
+reaches `models.py`, the design is wrong — see `docs/archive/*-001-port-gas-to-django.md` §6.3.
 
 ## Django
 
