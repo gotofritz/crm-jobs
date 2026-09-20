@@ -34,3 +34,20 @@ def test_django_never_redirects_to_https_itself() -> None:
     """Caddy terminates TLS and redirects one hop earlier (plan 001 §5), so W008 is silenced."""
     assert settings.SECURE_SSL_REDIRECT is False
     assert "security.W008" in settings.SILENCED_SYSTEM_CHECKS
+
+
+def test_the_demo_database_is_a_second_alias() -> None:
+    """`--demo` on the importer picks an alias, not a mutated path (plan 003 I4)."""
+    assert set(settings.DATABASES) == {"default", "demo"}
+
+
+def test_the_demo_database_runs_the_same_sqlite_options() -> None:
+    """One builder, so the demo database cannot quietly drift from the real one."""
+    assert settings.DATABASES["demo"]["OPTIONS"] == settings.DATABASES["default"]["OPTIONS"]
+    assert settings.DATABASES["demo"]["ENGINE"] == settings.DATABASES["default"]["ENGINE"]
+
+
+def test_the_demo_database_is_the_file_poe_demo_rebuilds() -> None:
+    """`poe demo` deletes demo.sqlite3 by name, so the alias has to be that file."""
+    assert settings.DEMO_DATABASE_PATH.name == "demo.sqlite3"
+    assert settings.DEMO_DATABASE_PATH.parent == Path(settings.BASE_DIR).parent

@@ -289,9 +289,18 @@ one-line change with a test beside it.
 ## 7. The command
 
 `src/jobs/management/commands/import_sheet.py`, thin: argument parsing,
-one transaction, and the report. The work sits in `src/jobs/sheet.py`,
-which is pure — it turns text into dataclasses and knows nothing about
-the ORM, so the whole parser is testable without the `db` fixture.
+and printing what the run did. The work sits in two modules either side
+of it.
+
+| Module | Knows about | Does not know about |
+|--------|-------------|---------------------|
+| `src/jobs/sheet.py` | the exported text, the packing rules, the state table | the ORM |
+| `src/jobs/importer.py` | the models, the transaction, the alias `--demo` picks | the file, or that CSV exists |
+
+The split is what makes the parser testable without the `db` fixture and
+the writer testable without a file, and it is the same boundary the rest
+of the app keeps: rules in pure functions, rows in the layer that owns
+them.
 
 ```
 import_sheet <csv> [--demo] [--dry-run]
