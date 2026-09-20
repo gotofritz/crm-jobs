@@ -121,9 +121,12 @@ the single largest source of fragility in the current app.
 
 - Creating an opportunity also creates its first step automatically,
   using the opportunity's date and contact and the default step title.
-- New steps are prepended (`steps.unshift`), so the newest step sits
-  leftmost, next to the summary, pushing older ones right. This is the
-  layout to preserve.
+- New steps are prepended (`steps.unshift`), so a new one arrives at the
+  left, next to the summary. That is insertion order, not display order:
+  `sortSteps` then decides where it actually sits, and §4.5 is what says
+  how. The layout to preserve is the direction — the leftmost card is the
+  one to read first — not "newest leftmost", which §4.5 overrules
+  whenever two steps are in different groups.
 - Comments are editable on their own, through a separate dialog, for
   both opportunities and steps.
 
@@ -136,6 +139,13 @@ Group ranking: `ATTENTION` 3, `DUE` 2, `COMPLETE` 1, anything else -1.
 1. By group rank, descending.
 2. Tie: by `date` + `time` ascending — *except* when the state's group
    is `COMPLETE`, where it is descending.
+
+Group rank is first and the date only breaks a tie, so a track is not in
+date order and is not meant to be. A `TENTATIVE` step on the 17th sits
+left of a `BAD_FEELING` one on the 20th because `DUE` outranks
+`COMPLETE`: the leftmost card is the one that still wants something, not
+the one that happened last. **Decision: keep it.** The alternative reads
+as a diary, and what the row is for is knowing what to do next.
 
 **Opportunities within the pool** (`Pool.sortOpportunities`), keyed on
 each opportunity's *first* (newest) step:
@@ -925,7 +935,7 @@ archived count in the header and nothing else about the archive.
 | SUMMARY | | STEP 3 | STEP 2 | STEP 1 |          |
 |         | |<------- scrolls ------------------->|
 ---------------------------------------------------
-   ^ fixed        ^ newest first, oldest right
+   ^ fixed        ^ most pressing first (§4.5), oldest right within a group
 ```
 
 A row is two blocks, not one scroller with a pinned first child. The
@@ -993,34 +1003,67 @@ that never runs it gets the laptop board at phone width.
 
 ### HTMX routes
 
+There is no panel. A card shows what it has, edits itself, and is the shape
+everything else borrows.
+
+This table first described a drawer for everything, which was the GAS sidebar
+carried over — and that sidebar existed because a spreadsheet had nothing else
+to offer. Three things happen on the card instead:
+
+- **Changing one value.** Click it and it becomes an input; blur or Enter
+  commits, Escape puts it back.
+- **Filling in what is not there.** An empty field is left off the card, so
+  Edit opens the whole card as one form with every field showing, and Done
+  saves it and hides the empty ones again.
+- **Creating.** A blank card in edit mode — a row at the top of the board, a
+  step at the near end of the track, a note at the top of the list — saved with
+  one submit, because there is no row yet to save a field into.
+
 | Method | Path | Returns |
 |--------|------|---------|
 | GET | `/` | full board |
-| GET | `/opportunities/new` | form partial |
-| POST | `/opportunities/` | new row partial, prepended to board |
-| GET | `/opportunities/<id>/edit` | form partial |
-| POST | `/opportunities/<id>/` | row partial |
+| GET | `/<kind>/<id>/field/<name>` | that value, as an input |
+| POST | `/<kind>/<id>/field/<name>` | that value again, or the board |
+| GET | `/<kind>/<id>/field/<name>/cancel` | that value, untouched |
+| GET | `/<kind>/<id>/edit` | the whole card, as one form |
+| POST | `/<kind>/<id>/edit` | the card again, empty fields hidden |
+| GET | `/opportunities/new` | a blank row, in edit mode |
+| POST | `/opportunities/` | full board, new row marked (§6.6) |
+| GET | `/opportunities/<id>/steps/new` | the row, with a blank step card |
+| POST | `/opportunities/<id>/steps/` | row partial, or the board |
+| GET | `/opportunities/<id>/notes/new` | the row, with a blank note |
+| POST | `/opportunities/<id>/notes/` | row partial |
+| GET | `/new/cancel` | nothing, which takes a blank card away |
 | POST | `/opportunities/<id>/delete` | empty, swaps row out |
-| GET | `/opportunities/<id>/comments/edit` | comments form partial |
-| POST | `/opportunities/<id>/comments` | row partial |
-| GET | `/opportunities/<id>/steps/new` | form partial |
-| POST | `/opportunities/<id>/steps/` | row partial |
-| GET | `/steps/<id>/edit` | form partial |
-| POST | `/steps/<id>/` | row partial |
-| POST | `/steps/<id>/delete` | row partial |
+| POST | `/steps/<id>/delete` | row partial, or the board |
+| POST | `/notes/<id>/delete` | row partial |
 | POST | `/opportunities/<id>/archive` | empty, swaps row out |
-| POST | `/opportunities/<id>/unarchive` | row partial |
+| POST | `/opportunities/<id>/unarchive` | full board |
 | POST | `/opportunities/archive-live` | full board, now empty |
 
-Every mutation returns the affected opportunity row and swaps it with
-`hx-target="#opportunity-<id>" hx-swap="outerHTML"`. Re-sorting the
-whole board re-renders the board. `django-htmx` gives `request.htmx` for
-partial-vs-full rendering; it is one small dependency and earns its
-place.
+`<kind>` is `opportunities`, `steps` or `notes`. `GET` and `POST` share a URL in
+both editing shapes: what the `GET` replaces is what the `POST` puts back.
 
-Forms use Django `ModelForm`, rendered into a drawer on the right,
-mirroring the GAS sidebar. Validation errors re-render the form partial
-with its messages, no page reload.
+Naming a field in a URL is only safe against a whitelist, so `forms.EDITABLE`
+holds one per model and anything else is a 404. `archived_at` is not in it —
+archiving is its own action (§6.5) — and neither are the timestamps.
+
+A mutation returns the value or the card it changed, and the whole board when
+the change moved rows about — which a step's state or date can do, since the
+sort keys an opportunity on its newest step. Which of them is read rather than
+guessed, by comparing the board's order before the change with its order after.
+A board response is retargeted onto `#board`, a row response onto its own row.
+`django-htmx` gives `request.htmx` for partial-vs-full rendering; it is one
+small dependency and earns its place.
+
+Two of these are always the board. A create lands its row in sorted order rather
+than on top (§6.6), so the board re-renders with the new row marked; and an
+unarchive puts back a row that is not on the page to be swapped.
+
+Nothing here needs the script. A value is an anchor with an `href`, so following
+one without htmx opens a page with that field on it; a blank card asked for the
+same way is a page too; and every input is a real form that posts and redirects
+to the board. What the script adds is the swap and Escape.
 
 ## 8. Phases
 
@@ -1100,7 +1143,9 @@ right at phone width.
 
 ### Phase 4 — Mutations
 
-- All routes in §7, with `ModelForm`s.
+- All routes in §7, with `ModelForm`s. Everything happens on the card:
+  a value edits itself, Edit opens the fields an empty value hides, and
+  creating is a blank card in edit mode. No panel.
 - Company, contact, source and sector entered as free text backed by a
   `<datalist>`, resolved case-insensitively on save (§6.9). No separate
   management screens.

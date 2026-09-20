@@ -1,26 +1,29 @@
-{% load static %}<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Opportunities</title>
-    <link rel="stylesheet" href="{% static 'css/app.css' %}">
-    {# Vendored, deferred, no build step. The board is complete without it (§5, §7). #}
-    <script src="{% static 'js/board.js' %}" defer></script>
-  </head>
-  <body>
-    <header class="board__header">
-      <h1 class="board__title">Opportunities</h1>
-      {# Archived rows are not reachable from the board beyond this count (§6.5). #}
-      <p class="board__counts">{{ opportunities|length }} live, {{ archived_count }} archived</p>
-    </header>
+{% extends "jobs/base.html" %}
 
-    <main class="board" id="board">
-      {% for opportunity in opportunities %}
-        {% include "jobs/_opportunity_row.html" %}
-      {% empty %}
-        <p class="board__empty">Nothing live.</p>
-      {% endfor %}
-    </main>
-  </body>
-</html>
+{% block body %}
+  <header class="board__header">
+    <h1 class="board__title">Opportunities</h1>
+    {% include "jobs/_counts.html" %}
+
+    {# The two board-wide actions. Both work without the script: the forms POST #}
+    {# and the server redirects back here (§7). #}
+    <div class="board__actions">
+      {# A blank row at the top of the board, already in edit mode. #}
+      <a class="button" href="/opportunities/new"
+         hx-get="/opportunities/new" hx-target="#board" hx-swap="afterbegin">New opportunity</a>
+
+      {% if live_count %}
+        {# Bulk archive touches every live row at once, so it confirms with the #}
+        {# count in it — the one archive action that does (§6.5). #}
+        <form action="/opportunities/archive-live" method="post"
+              hx-post="/opportunities/archive-live"
+              hx-confirm="Archive all {{ live_count }} live opportunities?">
+          {% csrf_token %}
+          <button class="button" type="submit">Archive all {{ live_count }}</button>
+        </form>
+      {% endif %}
+    </div>
+  </header>
+
+  {% include "jobs/_board.html" %}
+{% endblock %}

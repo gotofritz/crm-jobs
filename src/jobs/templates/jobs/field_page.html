@@ -1,0 +1,16 @@
+{% extends "jobs/base.html" %}
+
+{# A value opened without htmx is a page of its own. The same partial, with #}
+{# somewhere to stand (§7). #}
+{% block title %}Edit{% endblock %}
+
+{% block body %}
+  <header class="board__header">
+    <h1 class="board__title">Edit</h1>
+  </header>
+
+  <main class="form-page">
+    {% include "jobs/_field_form.html" %}
+    <p><a class="button" href="/">Back to the board</a></p>
+  </main>
+{% endblock %}

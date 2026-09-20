@@ -229,14 +229,15 @@ def test_in_board_order_loads_steps_and_states_up_front(
 ) -> None:
     """Prefetching is what stops the sort reaching back into the database per row (§4.5).
 
-    Rows, steps and states, plus the notes the summary card prints: four
-    queries however many opportunities the board holds.
+    Rows, steps, states, the contacts a step card prints and the notes a
+    summary card prints: five queries however many opportunities the board
+    holds.
     """
     for title in ("first", "second", "third"):
         opportunity = add_opportunity(company, title=title)
         add_step(opportunity, slug="due", date="2026-01-01")
 
-    with django_assert_num_queries(4):
+    with django_assert_num_queries(5):
         assert [
             row.steps.all()[0].state.name for row in Opportunity.objects.live().in_board_order()
         ] == ["Due", "Due", "Due"]
@@ -284,3 +285,28 @@ def test_notes_written_in_the_same_instant_keep_the_later_row_on_top() -> None:
 def test_sorting_no_notes_is_not_an_error() -> None:
     """Most opportunities carry none, and an empty list is what the board renders."""
     assert sort_notes([]) == []
+
+
+def test_a_due_step_outranks_a_later_complete_one() -> None:
+    """A track is not in date order, and is not meant to be (§4.5).
+
+    Reported as a bug: a TENTATIVE step on the 17th sits left of a BAD_FEELING
+    one on the 20th. That is the rule working. Group rank comes first and the
+    date only breaks a tie, so the leftmost card is the one that still wants
+    something rather than the one that happened last.
+
+    §7 used to claim "newest first, oldest right" and §4.4 "the newest step
+    sits leftmost"; both now say what this asserts.
+    """
+    tentative = make_step(group="DUE", date="2026-09-17", sort_order=4)
+    bad_feeling = make_step(group="COMPLETE", date="2026-09-20", sort_order=7)
+
+    assert sort_steps([bad_feeling, tentative]) == [tentative, bad_feeling]
+
+
+def test_inside_one_group_the_later_step_can_lead() -> None:
+    """The date tie-break only applies once the rank is level — and COMPLETE inverts it."""
+    older = make_step(group="COMPLETE", date="2026-09-17", sort_order=7)
+    newer = make_step(group="COMPLETE", date="2026-09-20", sort_order=7)
+
+    assert sort_steps([older, newer]) == [newer, older]

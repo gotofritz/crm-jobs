@@ -1,0 +1,24 @@
+{# How each of an opportunity's values prints. The board and a save both render #}
+{# through here, so what a value looks like cannot drift between the two. #}
+{% url 'field' kind='opportunities' pk=opportunity.pk field=field as value_url %}
+{% if field == "title" %}
+  {% include "jobs/_editable.html" with url=value_url text=opportunity.title label="Job title" %}
+{% elif field == "company" %}
+  {% include "jobs/_editable.html" with url=value_url text=opportunity.company.name label="Company" %}
+{% elif field == "date" %}
+  {% include "jobs/_editable.html" with url=value_url text=opportunity.date|date:'j M Y' iso=opportunity.date|date:'Y-m-d' label="Date applied" %}
+{% elif field == "source" %}
+  {% include "jobs/_editable.html" with url=value_url text=opportunity.source.name label="Source" placeholder="—" %}
+{% elif field == "contact" %}
+  {% include "jobs/_editable.html" with url=value_url text=opportunity.contact.name label="Contact" placeholder="—" %}
+{% elif field == "company_sector" %}
+  {% include "jobs/_editable.html" with url=value_url text=opportunity.company.sector.name label="Sector" placeholder="—" %}
+{% elif field == "company_url" %}
+  {% include "jobs/_editable.html" with url=value_url text=opportunity.company.url label="Site" placeholder="—" %}
+{% elif field == "company_linkedin_url" %}
+  {% include "jobs/_editable.html" with url=value_url text=opportunity.company.linkedin_url label="LinkedIn" placeholder="—" %}
+{% elif field == "company_head_office" %}
+  {% include "jobs/_editable.html" with url=value_url text=opportunity.company.head_office label="Office" placeholder="—" %}
+{% elif field == "job_description" %}
+  {% include "jobs/_editable.html" with url=value_url text=opportunity.job_description label="Job description" %}
+{% endif %}

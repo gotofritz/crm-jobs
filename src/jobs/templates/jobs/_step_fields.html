@@ -1,0 +1,19 @@
+{# Every field a step has, as inputs. Edit mode and adding a step both render #}
+{# this, which is what keeps the two the same shape. #}
+<h3 class="card__title">{{ form.title }}{{ form.title.errors }}</h3>
+<p class="card__subtitle">{{ form.state }}{{ form.state.errors }}</p>
+
+<dl class="card__facts">
+  <dt>When</dt>
+  <dd>{{ form.date }}{{ form.date.errors }}{{ form.time }}{{ form.time.errors }}</dd>
+  <dt>{{ form.contacts.label }}</dt>
+  <dd>{{ form.contacts }}{{ form.contacts.errors }}</dd>
+  <dt>Notes</dt>
+  <dd>{{ form.comments }}{{ form.comments.errors }}</dd>
+</dl>
+
+{% for id, options in datalists.items %}
+  <datalist id="{{ id }}">
+    {% for option in options %}<option value="{{ option }}"></option>{% endfor %}
+  </datalist>
+{% endfor %}

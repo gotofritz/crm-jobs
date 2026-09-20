@@ -1,0 +1,28 @@
+{# Edit opens every field, including the ones an empty value keeps off the card. #}
+{# Changing something already there needs none of this: click it. #}
+<footer class="card__controls">
+  <a class="control" href="/opportunities/{{ opportunity.pk }}/edit"
+     hx-get="/opportunities/{{ opportunity.pk }}/edit"
+     hx-target="#opportunity-{{ opportunity.pk }}" hx-swap="outerHTML">Edit</a>
+
+  <a class="control" href="/opportunities/{{ opportunity.pk }}/notes/new"
+     hx-get="/opportunities/{{ opportunity.pk }}/notes/new"
+     hx-target="#opportunity-{{ opportunity.pk }}" hx-swap="outerHTML">Add note</a>
+
+  {# Archiving is reversible, so it asks nothing — the bulk one is the exception (§6.5). #}
+  <form action="/opportunities/{{ opportunity.pk }}/archive" method="post"
+        hx-post="/opportunities/{{ opportunity.pk }}/archive"
+        hx-target="#opportunity-{{ opportunity.pk }}" hx-swap="outerHTML">
+    {% csrf_token %}
+    <button class="control" type="submit">Archive</button>
+  </form>
+
+  {# A delete is the one thing on the board that is not reversible (§6.5). #}
+  <form action="/opportunities/{{ opportunity.pk }}/delete" method="post"
+        hx-post="/opportunities/{{ opportunity.pk }}/delete"
+        hx-target="#opportunity-{{ opportunity.pk }}" hx-swap="outerHTML"
+        hx-confirm="Delete {{ opportunity.title }} and its steps? This cannot be undone.">
+    {% csrf_token %}
+    <button class="control control--danger" type="submit">Delete</button>
+  </form>
+</footer>

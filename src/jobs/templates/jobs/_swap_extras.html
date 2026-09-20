@@ -1,0 +1,5 @@
+{# What every mutation sends back alongside its swap: the header counts, which #}
+{# an archive changes without touching the row that was clicked. A delete sends #}
+{# this and nothing else, so htmx has nothing to put where the row was and takes #}
+{# it out (§7). #}
+{% include "jobs/_counts.html" with oob=True %}

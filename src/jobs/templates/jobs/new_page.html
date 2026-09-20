@@ -1,0 +1,15 @@
+{% extends "jobs/base.html" %}
+
+{# A blank card asked for without htmx is a page of its own: the same markup, #}
+{# with somewhere to stand (§7). #}
+{% block title %}New{% endblock %}
+
+{% block body %}
+  <header class="board__header">
+    <h1 class="board__title">New</h1>
+  </header>
+
+  <main class="board">
+    {% include blank %}
+  </main>
+{% endblock %}

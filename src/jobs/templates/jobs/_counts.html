@@ -1,0 +1,4 @@
+{# The header's tally. Archived rows are not reachable from the board beyond #}
+{# this count (§6.5). Rendered out of band after a mutation, because an archive #}
+{# changes it without touching the row that was clicked. #}
+<p class="board__counts" id="board-counts"{% if oob %} hx-swap-oob="true"{% endif %}>{{ live_count }} live, {{ archived_count }} archived</p>

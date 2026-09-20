@@ -1,0 +1,18 @@
+{# How each of a step's values prints. #}
+{# The state prints no placeholder text: UNREMARKABLE's name is empty by design #}
+{# (§6.1), so printing one would put a label on the card the data says has none. #}
+{# The box stays clickable and `aria-label` says what it is. #}
+{% url 'field' kind='steps' pk=step.pk field=field as value_url %}
+{% if field == "title" %}
+  {% include "jobs/_editable.html" with url=value_url text=step.title label="Step" %}
+{% elif field == "state" %}
+  {% include "jobs/_editable.html" with url=value_url text=step.state.name label="State" %}
+{% elif field == "date" %}
+  {% include "jobs/_editable.html" with url=value_url text=step.date|date:'j M Y' iso=step.date|date:'Y-m-d' label="Date" %}
+{% elif field == "time" %}
+  {% include "jobs/_editable.html" with url=value_url text=step.time|time:'H:i' label="Time" %}
+{% elif field == "contacts" %}
+  {% include "jobs/_editable.html" with url=value_url text=step.contact_names label="Who this step was with" %}
+{% elif field == "comments" %}
+  {% include "jobs/_editable.html" with url=value_url text=step.comments label="Notes on this step" %}
+{% endif %}

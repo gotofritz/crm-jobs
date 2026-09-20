@@ -19,6 +19,19 @@
  * own bar; with it, a laptop hides bar and closed block alike and the summary
  * card's button opens it instead. The two controls drive the same `<details>`,
  * so `aria-expanded` follows the element rather than a count of clicks.
+ *
+ * It also cancels an edit. A value on the board swaps itself for an input, which
+ * commits on blur or on Enter; Escape is the way out, and only a script can
+ * offer one. Nothing else about editing needs it — the input is a real form and
+ * posts on its own.
+ *
+ * Since phase 4 it has two jobs more, both about rows htmx has just swapped in.
+ * A swapped row has never been through `apply`, so its arrows, notes clamp and
+ * description toggle would be the only ones on the page that did not work; and
+ * a row a create has just made lands in sorted order rather than on top (§6.6),
+ * so it is scrolled to and then unmarked. Neither is required: without the
+ * script the server still answers every mutation, the browser still reloads the
+ * board, and `?new=<id>` still says which row is the new one.
  */
 (() => {
   "use strict";
@@ -32,6 +45,11 @@
   // decides how much of the list shows; this only decides whether there is
   // anything left over to offer.
   const NOTES_SHOWN = 2;
+
+  // Matches the `new-row` animation in assets/forms.css. The stylesheet decides
+  // how long the highlight lasts; this only decides when to stop claiming the
+  // row is new.
+  const NEW_ROW_MS = 2500;
 
   const root = document.documentElement;
 
@@ -199,6 +217,48 @@
     });
   }
 
+  // A create lands the row in sorted order rather than floating it to the top,
+  // so the answer to "where did it go" is to go there (§6.6). The mark is a
+  // moment, not a state: it is cleared once it has been acted on, or a later
+  // swap would re-announce a row that is no longer new.
+  function announceNewRow() {
+    const row = document.querySelector("[data-new]");
+    if (!row) {
+      return;
+    }
+
+    row.scrollIntoView({
+      block: "nearest",
+      behavior: STILL.matches ? "auto" : "smooth",
+    });
+    // After the highlight has run its course in forms.css, not before: taking
+    // the attribute off is what ends the animation.
+    window.setTimeout(() => row.removeAttribute("data-new"), NEW_ROW_MS);
+  }
+
+  // Escape leaves an edit without saving it. The input's `defaultValue` goes
+  // back first: blur commits, and blur is exactly what removing the input
+  // causes, so the two race. Restoring the old value makes the race harmless —
+  // the worst a blur can then write is what was already there.
+  function cancelEdit(form) {
+    form.querySelectorAll("input, select, textarea").forEach((input) => {
+      input.value = input.defaultValue;
+    });
+    htmx.ajax("GET", form.dataset.cancel, { target: form, swap: "outerHTML" });
+  }
+
+  function onKeydown(event) {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    const form = event.target.closest("[data-editing]");
+    if (form) {
+      event.preventDefault();
+      cancelEdit(form);
+    }
+  }
+
   function onScroll(event) {
     const element = event.target;
     if (element instanceof Element && element.matches("[data-steps-track]")) {
@@ -239,14 +299,29 @@
   root.classList.add("has-js");
   // Delegated, so rows swapped in later are wired without re-running any of this.
   document.addEventListener("click", onClick);
+  document.addEventListener("keydown", onKeydown);
   // Neither `scroll` nor `toggle` bubbles, so these listen on the way down.
   document.addEventListener("scroll", onScroll, true);
   document.addEventListener("toggle", onDetails, true);
   PHONE.addEventListener("change", apply);
+  // A swapped row is markup `apply` has never seen. Re-running it is cheap and
+  // idempotent, which is why the whole document is re-enhanced rather than the
+  // fragment tracked.
+  document.addEventListener("htmx:afterSwap", () => {
+    apply();
+    announceNewRow();
+  });
+
+  function start() {
+    apply();
+    // The scriptless path lands here: the server redirected to `/?new=<id>` and
+    // the board rendered the mark into the page (§6.6).
+    announceNewRow();
+  }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", apply);
+    document.addEventListener("DOMContentLoaded", start);
   } else {
-    apply();
+    start();
   }
 })();

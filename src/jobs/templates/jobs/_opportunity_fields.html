@@ -1,0 +1,34 @@
+{# Every field an opportunity has, as inputs. Edit mode and creating a row both #}
+{# render this, which is what keeps the two the same shape. #}
+{# The empty ones are here too — reaching them is the only reason Edit exists. #}
+<h2 class="card__heading">
+  <span class="card__title">{{ form.title }}{{ form.title.errors }}</span>
+  <span class="card__subtitle">{{ form.company }}{{ form.company.errors }}</span>
+</h2>
+
+<dl class="card__facts">
+  <dt>{{ form.date.label }}</dt>
+  <dd>{{ form.date }}{{ form.date.errors }}</dd>
+  <dt>{{ form.source.label }}</dt>
+  <dd>{{ form.source }}{{ form.source.errors }}</dd>
+  <dt>{{ form.contact.label }}</dt>
+  <dd>{{ form.contact }}{{ form.contact.errors }}</dd>
+  <dt>{{ form.company_sector.label }}</dt>
+  <dd>{{ form.company_sector }}{{ form.company_sector.errors }}</dd>
+  <dt>{{ form.company_url.label }}</dt>
+  <dd>{{ form.company_url }}{{ form.company_url.errors }}</dd>
+  <dt>{{ form.company_linkedin_url.label }}</dt>
+  <dd>{{ form.company_linkedin_url }}{{ form.company_linkedin_url.errors }}</dd>
+  <dt>{{ form.company_head_office.label }}</dt>
+  <dd>{{ form.company_head_office }}{{ form.company_head_office.errors }}</dd>
+  <dt>{{ form.job_description.label }}</dt>
+  <dd>{{ form.job_description }}{{ form.job_description.errors }}</dd>
+</dl>
+
+{# A picklist grows by typing into it; the list only suggests what is there #}
+{# already, so nothing here stops a new name (§6.9). #}
+{% for id, options in datalists.items %}
+  <datalist id="{{ id }}">
+    {% for option in options %}<option value="{{ option }}"></option>{% endfor %}
+  </datalist>
+{% endfor %}

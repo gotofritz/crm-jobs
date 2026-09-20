@@ -1,28 +1,44 @@
 {# A row is two blocks — the summary and the steps — and, when there is an ad to #}
 {# show, a third that wraps onto a line of its own underneath them. On a phone #}
 {# all three stack (§7). #}
-<section class="opportunity" id="opportunity-{{ opportunity.pk }}">
+{# `data-new` marks the row a create just made, so it can be highlighted and #}
+{# scrolled to: "I added something and it moved" is answered in presentation, #}
+{# not by floating new rows to the top (§6.6). #}
+<section class="opportunity" id="opportunity-{{ opportunity.pk }}"
+         {% if new_pk == opportunity.pk %}data-new{% endif %}>
   {% include "jobs/_summary_card.html" %}
 
   {# Arrows either side of the track, not inside it, so they stay put as it moves. #}
   {# The script hides them where they are no use. #}
   <div class="opportunity__steps" data-steps>
-    <button class="steps__arrow" type="button" data-steps-prev aria-label="Newer step" hidden>
+    {# The arrows' twin: same box, a `+` where the chevron is. It sits against #}
+    {# the summary, outside the track, so it never scrolls away from the row it #}
+    {# adds to — and a new step is the newest, which is this end of the track. #}
+    <a class="steps__button steps__add" href="/opportunities/{{ opportunity.pk }}/steps/new"
+       hx-get="/opportunities/{{ opportunity.pk }}/steps/new"
+       hx-target="#track-{{ opportunity.pk }}" hx-swap="afterbegin"
+       aria-label="Add step" title="Add step">
+      <span aria-hidden="true">+</span>
+    </a>
+
+    <button class="steps__button steps__arrow" type="button" data-steps-prev
+            aria-label="Newer step" hidden>
       <span aria-hidden="true">&lsaquo;</span>
     </button>
 
-    <div class="opportunity__track" data-steps-track>
+    <div class="opportunity__track" id="track-{{ opportunity.pk }}" data-steps-track>
       {% for step in opportunity.ordered_steps %}
         {% include "jobs/_step_card.html" %}
       {% endfor %}
     </div>
 
-    <button class="steps__arrow" type="button" data-steps-next aria-label="Older step" hidden>
+    <button class="steps__button steps__arrow" type="button" data-steps-next
+            aria-label="Older step" hidden>
       <span aria-hidden="true">&rsaquo;</span>
     </button>
   </div>
 
-  {% if opportunity.job_description %}
+  {% if opportunity.job_description and not editing %}
     {% include "jobs/_job_description.html" %}
   {% endif %}
 </section>

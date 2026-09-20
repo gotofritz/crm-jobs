@@ -129,8 +129,11 @@ body {
 /* Shown only once the script that moves the track is running; `hidden` in the
    markup covers the no-script case, and the script takes it off and puts it
    back as the track reaches each end. */
-.steps__arrow {
-  display: none;
+/* The furniture either side of the track: two arrows and the control that adds
+   a step. One box, so the third reads as the arrows' twin rather than as a
+   button that happens to sit near them. `align-self: stretch` is what makes it
+   vertical — it takes the row's height the way a step card does. */
+.steps__button {
   flex: none;
   align-items: center;
   justify-content: center;
@@ -145,6 +148,12 @@ body {
   cursor: pointer;
 }
 
+/* An arrow moves a track only the script can move, so nothing shows one until
+   it has run. */
+.steps__arrow {
+  display: none;
+}
+
 .has-js .steps__arrow {
   display: flex;
 }
@@ -152,6 +161,13 @@ body {
 .steps__arrow:disabled {
   opacity: 0.3;
   cursor: default;
+}
+
+/* Not an arrow: it goes somewhere rather than moving anything, so it is a link,
+   and it shows whether or not the script ran. */
+.steps__add {
+  display: flex;
+  text-decoration: none;
 }
 
 .card {
@@ -179,15 +195,33 @@ body {
   font-weight: inherit;
 }
 
-/* A button, because it toggles the card rather than going anywhere. Preflight
-   has already stripped its chrome; what is left is making it read as the card's
-   own two lines. */
+/* The phone's collapse control. It used to be the card's whole two-line head,
+   which stopped being possible once the title and the company became links: a
+   button may not contain one. So it is a chevron of its own, and it is hidden
+   wherever there is nothing to collapse — which is every width but the phone,
+   and the phone too until the script has run. */
 .card__head {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  text-align: left;
+  display: none;
   cursor: pointer;
+}
+
+/* Reachable by a screen reader and by the keyboard, and out of the layout. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The two lines that name a row are two lines, however short they are: reading
+   "Staff Engineer Acme" as one is reading a different thing. */
+.card__title,
+.card__subtitle {
+  display: block;
 }
 
 .card__title {
@@ -250,14 +284,51 @@ body {
   line-height: var(--notes-line-height);
 }
 
+/* No bullets: the control that deletes an entry stands where one would, so a
+   disc beside it would be a second marker for the same row. */
 .notes__list {
   margin: 0;
-  padding-left: 1.1rem;
-  list-style: disc;
+  padding: 0;
+  list-style: none;
 }
 
+/* Marker column, then the note. `start` rather than centred, so a note running
+   to three lines keeps its control level with the first of them. */
 .notes__item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.4rem;
+  padding: 0.3rem 0;
   overflow-wrap: anywhere;
+}
+
+/* Between entries rather than around them, so the first has no line above it.
+   Dashed here is a separator, not the border GHOSTED wears as its second
+   channel (§6.4) — that is an edge around a card, and this is a rule between
+   two lines of text inside one. */
+.notes__item + .notes__item {
+  border-top: 1px dashed var(--rule);
+}
+
+/* The remove control is a form wrapping one button, so it must not take a
+   column of its own. Scoped to that form and no other: every other form in an
+   entry — the one that edits a note, the one that writes a new one — is the
+   entry's content and keeps its box. Flattening those drops their Save into
+   this narrow marker column, nine pixels wide and a letter per line. */
+.notes__item .notes__remove {
+  display: contents;
+}
+
+.notes__item .editable__form {
+  display: block;
+}
+
+/* A note that does not exist yet has nothing to remove, so it needs no marker
+   column — the entry is the form. */
+.notes__item--new {
+  display: block;
+  padding: 0.3rem 0;
 }
 
 /* Two notes or four lines, whichever is shorter — so both limits are here, and
@@ -322,8 +393,28 @@ body {
   columns: 22rem;
   column-gap: 1.5rem;
   margin-top: 0.5rem;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* The ad is the one editable value that is a block of prose rather than a line
+   in a list, and the columns above have to be able to break it. An
+   `inline-block` is a single unbreakable box, so they cannot: the whole ad
+   lands in one column and the rest stand empty. A block box fragments.
+
+   `display: inline` fragments too, but an inline box sits on the containing
+   block's baseline, which drops a tall ad to the bottom of its line — so this
+   is `block` rather than merely "not inline-block". The `min-width` that gives
+   an empty value something to click goes with it; an ad needs no help. */
+.description__body .editable {
+  display: block;
+  min-width: 0;
+  /* On the element holding the text, not the block around it. The ad used to be
+     the block's only text node, so there was no incidental whitespace to
+     preserve; wrapped in a link, the newlines the template puts either side of
+     it became leading blank lines that pushed the first column to the bottom.
+     Inside the link there is no such whitespace, so the ad's own paragraphs
+     survive and the markup's do not. */
+  white-space: pre-wrap;
 }
 
 /* A phone is too narrow for a summary beside its steps, so the row stacks: the
@@ -366,17 +457,23 @@ body {
   }
 
   .has-js .card__head {
-    padding-right: 1.5rem;
+    display: block;
+    position: absolute;
+    top: var(--card-padding);
+    right: var(--card-padding);
   }
 
   .has-js .card__head::after {
     content: "\2304";
-    position: absolute;
-    top: var(--card-padding);
-    right: var(--card-padding);
+    display: block;
     font-size: 1rem;
     line-height: 1;
     transition: transform 0.15s ease;
+  }
+
+  /* The heading keeps clear of the chevron. */
+  .card__heading {
+    padding-right: 1.5rem;
   }
 
   .has-js .card--summary {

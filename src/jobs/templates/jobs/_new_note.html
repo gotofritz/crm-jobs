@@ -1,0 +1,16 @@
+{# A note is one field, so its blank is one input where the list is. #}
+<li class="notes__item notes__item--new" id="note-new">
+  <form class="card__edit" action="/opportunities/{{ opportunity.pk }}/notes/" method="post"
+        data-editing data-cancel="/new/cancel"
+        hx-post="/opportunities/{{ opportunity.pk }}/notes/"
+        hx-target="#opportunity-{{ opportunity.pk }}" hx-swap="outerHTML">
+    {% csrf_token %}
+    {{ form.body }}{{ form.body.errors }}
+
+    <footer class="card__controls">
+      <button class="control" type="submit">Save</button>
+      <a class="control" href="/"
+         hx-get="/new/cancel" hx-target="#note-new" hx-swap="outerHTML">Cancel</a>
+    </footer>
+  </form>
+</li>

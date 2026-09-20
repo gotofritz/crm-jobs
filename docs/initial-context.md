@@ -54,10 +54,12 @@ version; `uv run poe dev` fetches it if it is missing and then runs it in watch
 mode beside `runserver`.
 
 ```
-assets/            app.css (Tailwind input), board.css, states.css — the source
-static/css/app.css the compiled stylesheet, committed, and what is served
-static/js/board.js the one hand-written script, served as written
-staticfiles/       what collectstatic writes on deploy; not in the repository
+assets/              app.css (Tailwind input), board.css, states.css,
+                     forms.css — the source
+static/css/app.css   the compiled stylesheet, committed, and what is served
+static/js/htmx.min.js htmx, vendored at a pinned version, never from a CDN
+static/js/board.js   the one hand-written script, served as written
+staticfiles/         what collectstatic writes on deploy; not in the repository
 ```
 
 Paths inside `assets/app.css` are relative to that file — `@import "./board.css"`,
@@ -237,7 +239,7 @@ the archive — not seeing archived rows is the point of archiving (plan 001 §6
 ---------------------------------------------------
 | > Job description                               |
 ---------------------------------------------------
-   ^ fixed        ^ newest first, oldest right
+   ^ fixed        ^ most pressing first, oldest right within a group
 ```
 
 A row is two blocks, and a third when there is an ad to show. The summary is one
@@ -299,7 +301,7 @@ reach. Both controls drive the same element, and a delegated `toggle` listener
 writes `aria-expanded` back from it rather than from a count of clicks.
 
 The summary card carries the notes too: a bullet list in `ordered_notes`
-order, newest at the top. The stylesheet clamps it to the first two notes or
+order, newest at the top, a new one going in at that end. The stylesheet clamps it to the first two notes or
 four lines, whichever bites first — `nth-child(n + 3)` for the one limit and a
 `max-height` for the other, since a single long note reaches four lines before a
 third note does. Both are scoped to `.has-js`, because the toggle that puts the
@@ -335,9 +337,129 @@ one `_step_card.html` per step, and `_job_description.html` when the opportunity
 has an ad. The track is there whether or not it has steps in it yet, because
 phase 4 swaps into it.
 
-Notes are read-only on the board. Adding and removing one is the admin's job
-until phase 4 brings the mutation routes and the `+` and `−` controls with
-them.
+Every value on a row is editable where it sits. What is left as a control is
+Edit, which opens the fields a value cannot reach because they are empty, plus
+adding a note, adding a step, archiving and deleting.
+
+### Mutations
+
+There is no panel. A card shows what it has, edits itself, and is the shape
+everything else borrows.
+
+Three things happen on the card rather than beside it:
+
+- **Changing one value.** Click it and it becomes an input; blur or Enter
+  commits, Escape puts it back.
+- **Filling in what is not there.** A field with nothing in it is left off the
+  card — a label and a dash is an 18rem column spent on nothing — so Edit opens
+  the whole card as one form with every field showing, and Done saves it and
+  hides the empty ones again.
+- **Creating.** A blank card in edit mode: a row at the top of the board, a step
+  at the near end of the track, a note at the top of the list. It saves with one
+  submit rather than on blur, because there is no row yet to save a field into.
+
+Plan 001 §7 described a drawer, and that came from the GAS app, where a sidebar
+was the only thing a spreadsheet could offer. Nothing here needs one.
+
+| Method | Path | Returns |
+|--------|------|---------|
+| GET | `/` | full board |
+| GET | `/<kind>/<id>/field/<name>` | that value, as an input |
+| POST | `/<kind>/<id>/field/<name>` | that value again, or the board if the order changed |
+| GET | `/<kind>/<id>/field/<name>/cancel` | that value, untouched |
+| GET | `/<kind>/<id>/edit` | the whole card, as one form |
+| POST | `/<kind>/<id>/edit` | the card again, empty fields hidden |
+| GET | `/opportunities/new` | a blank row, in edit mode |
+| POST | `/opportunities/` | board, with the new row marked |
+| GET | `/opportunities/<id>/steps/new` | the row, with a blank step card in its track |
+| POST | `/opportunities/<id>/steps/` | row, or the board if the order changed |
+| GET | `/opportunities/<id>/notes/new` | the row, with a blank note in its list |
+| POST | `/opportunities/<id>/notes/` | row |
+| GET | `/new/cancel` | nothing, which takes a blank card away |
+| POST | `/opportunities/<id>/delete` | empty, swaps the row out |
+| POST | `/steps/<id>/delete` | row, or the board if the order changed |
+| POST | `/notes/<id>/delete` | row |
+| POST | `/opportunities/<id>/archive` | empty, swaps the row out |
+| POST | `/opportunities/<id>/unarchive` | full board |
+| POST | `/opportunities/archive-live` | full board, now empty |
+
+`<kind>` is `opportunities`, `steps` or `notes`. `GET` and `POST` share a URL in
+both editing shapes, because they are the same thing seen twice: what the `GET`
+replaces is what the `POST` puts back.
+
+Naming a field in a URL is only safe with a whitelist, so `forms.EDITABLE` holds
+one per model and anything else 404s. `archived_at` is not in it — archiving is
+its own action (§6.5) — and neither are the timestamps.
+
+`FieldScoped` is what makes a single value savable. The browser sends one field,
+so a whole-object form would reject the row for the others it never received;
+the form is cut down to match the request instead. It also gates the resolution
+that turns free text into rows, so an edit that never sent a company cannot
+create one, and one that never sent a step's contacts cannot empty them.
+
+Which of the value, the card or the board comes back is read rather than
+guessed. The view takes the board's order before the change and again after, and
+re-renders the whole board only when the two differ — which a step's state or
+date can cause, because the sort keys an opportunity on its newest step. A board
+response retargets onto `#board`, and a row response onto its own row, because
+the click may have come from a blank card nested inside it.
+
+Creating an opportunity also creates its first step, the way the GAS app did
+(§4.4). That rule lives on `Opportunity.add_first_step()` rather than in the
+view, so a second way of creating one cannot skip it. The step lands in
+`DEFAULT_STEP_STATE` — `unremarkable`, mid-pile rather than urgent (§6.6) — and
+carries the opportunity's date and contact.
+
+Because a new row lands in sorted order rather than on top, the create response
+marks it `data-new`. CSS highlights it and the script scrolls it into view, then
+clears the mark. The scriptless path gets the same thing: the POST redirects to
+`/?new=<id>` and the board renders the mark from the query string.
+
+None of it needs the script. A value is an anchor with an `href`, so following
+one without htmx opens a page with that field on it; a blank card asked for the
+same way is a page too; and every input is a real form that posts and redirects
+to the board. What the script adds is the swap, and Escape — it puts the input's
+`defaultValue` back before asking for the value again, because blur commits and
+removing the input is what causes a blur, so the two race and the restore makes
+the race harmless.
+
+One consequence of losing the panel is worth naming. The card's heading can no
+longer be a button — a button may not contain links, and the title is one — so
+the phone's collapse control is a chevron of its own beside it, which CSS hides
+at every width that has nothing to collapse.
+
+### Typing a name is how a picklist grows
+
+There are no management screens for companies, contacts, sources or sectors.
+Each is a text input backed by a `<datalist>` of what exists already, so the
+box drops down the stored names that match as they are typed — a suggestion,
+never a constraint, since a name matching nothing is still accepted. The two
+halves are one decision: `forms.suggesting` writes the `list` attribute on the
+widget, and the view reads those attributes back to decide which lists to put
+on the page. An input naming a list the page lacks, and a list nothing points
+at, both render perfectly well and do nothing at all, so neither is left to be
+remembered. It also keeps a one-field edit from shipping every company on
+record to fill in a sector. `autocomplete="off"` goes with it, or the browser's
+own history opens a second dropdown over the first.
+
+`forms.by_name` then resolves it on save: a name that matches case-insensitively
+reuses that row, and one that does not creates it. The first spelling entered
+wins, so a later `FINTECH` lands on the stored `Fintech` rather than forking it.
+Whitespace is collapsed on the way in for the same reason. On SQLite `iexact` is
+ASCII-only, which is fine for these names and worth knowing before anyone relies
+on it for accented ones (plan 001 §6.9).
+
+Resolution happens in `save`, never in `clean`, so a form that fails validation
+leaves no half-created company behind.
+
+`State` is the one picklist that is chosen rather than typed. A new sector needs
+no decision in code; a new state needs a group and a `sort_order`, which is one
+either way (§6.10).
+
+A company created mid-flow needs only a name. Its url, LinkedIn, head office and
+sector are edited from the opportunity form, and a blank one leaves the stored
+value alone rather than emptying it — an opportunity form touches a company in
+passing, and clearing one of its fields is deliberate work for the admin.
 
 ### The one script
 
@@ -359,8 +481,12 @@ script adds to `<html>`. A browser that never runs it gets the laptop board at
 phone width, which is usable rather than broken.
 
 It is wired by one delegated `click` listener on the document rather than per
-element, so rows HTMX swaps in during phase 4 are live without re-running
-anything. There is no JavaScript test runner and no npm to add one, so
+element, so a row htmx swaps in is live without re-running anything. What does
+have to be re-run is the part that measures: a swapped row has never been
+through `apply`, so its arrows, notes clamp and description toggle would be the
+only ones on the page that did not work. An `htmx:afterSwap` listener re-runs it
+over the whole document, which is cheap and idempotent, and announces a new row
+if one arrived. There is no JavaScript test runner and no npm to add one, so
 `tests/jobs/test_progressive_enhancement.py` checks the contract instead: it
 reads the script, collects every `[data-…]` hook it selects on, and fails if one
 is missing from the rendered board. Renaming a hook in one file and not the
@@ -396,10 +522,10 @@ group. It never knows what either looks like: templates emit `data-state` and
 has no colour field, and a test asserts it stays that way — if a hex value
 reaches `models.py`, the design is wrong (plan 001 §6.3).
 
-`forms.py` arrives in phase 4; the rows above are the contract it is written
-against. Templates carry semantic class names and data attributes only — never
-Tailwind utilities, because a utility class in a template is spacing and colour
-in a template.
+Templates carry semantic class names and data attributes only — never Tailwind
+utilities, because a utility class in a template is spacing and colour in a
+template. A test reads every template and every module under `src/jobs/` and
+fails on a hex value in any of them.
 
 ### Deviations from AGENTS.md
 

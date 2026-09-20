@@ -1,0 +1,9 @@
+{# The swappable board. A mutation that moves rows about re-renders this and #}
+{# retargets onto it; one that does not swaps a single row instead (§7). #}
+<main class="board" id="board">
+  {% for opportunity in opportunities %}
+    {% include "jobs/_opportunity_row.html" %}
+  {% empty %}
+    <p class="board__empty">Nothing live.</p>
+  {% endfor %}
+</main>

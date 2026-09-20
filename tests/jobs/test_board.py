@@ -208,12 +208,17 @@ def test_the_board_shows_live_rows_and_counts_the_archived(company: Company) -> 
 def test_the_board_costs_the_same_however_many_rows_it_has(
     company: Company, django_assert_num_queries: DjangoAssertNumQueries
 ) -> None:
-    """Rows, steps, states, notes and the archived count — five, not five per row (§4.5)."""
+    """Rows, steps, states, a step's contacts, notes, and the archived count (§4.5).
+
+    Six, and six whatever the board holds. The count is the point, not the
+    number: each is one prefetch, so adding a thing the card prints costs one
+    more query in total rather than one more per row.
+    """
     for index in range(3):
         row = add_opportunity(company, title=f"row {index}")
         add_step(row, slug="due", date="2026-01-01")
 
-    with django_assert_num_queries(5):
+    with django_assert_num_queries(6):
         render_board()
 
 

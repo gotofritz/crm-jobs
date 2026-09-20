@@ -8,5 +8,7 @@
 <details class="opportunity__description" id="description-{{ opportunity.pk }}" data-description>
   <summary class="description__summary">Job description</summary>
   {# The columns are CSS's business; this is one block of text either way (§6.3). #}
-  <div class="description__body">{{ opportunity.job_description }}</div>
+  <div class="description__body">
+    {% include "jobs/_opportunity_value.html" with field="job_description" %}
+  </div>
 </details>
