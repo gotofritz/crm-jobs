@@ -1,6 +1,6 @@
 # 003 — Import the historical sheet
 
-Status: proposed
+Status: built, 2026-09-20. Not yet archived — see §10.
 Date: 2026-09-20
 Follows: `docs/archive/2026-09-20-2221-05dd166-001-port-gas-to-django.md`
 
@@ -340,7 +340,7 @@ demo.sqlite3 nobody has built yet looks like, and the fix is `poe demo`.
 TDD, per AGENTS.md: failing test, confirm the failure is the expected
 one, minimal implementation, refactor green. `poe qa` before the PR.
 
-### Phase 1 — The parser
+### Phase 1 — The parser — done
 
 `src/jobs/sheet.py`, pure, no ORM import.
 
@@ -358,7 +358,7 @@ one, minimal implementation, refactor green. `poe qa` before the PR.
 Done when: the sample parses to the fields §4.1 says it holds, and the
 one malformed cell is reported.
 
-### Phase 2 — State inference
+### Phase 2 — State inference — done
 
 Still pure, still in `sheet.py`.
 
@@ -371,7 +371,7 @@ Still pure, still in `sheet.py`.
 
 Done when: the sample's five steps each land somewhere defensible.
 
-### Phase 3 — The demo database alias
+### Phase 3 — The demo database alias — done
 
 - `DATABASES["demo"]` in settings, sharing the `default` entry's SQLite
   options, pathed by `DJANGO_DEMO_DB_PATH` with `demo.sqlite3` as the
@@ -383,7 +383,7 @@ Done when: the sample's five steps each land somewhere defensible.
 
 Done when: nothing can write to the live database while `--demo` is set.
 
-### Phase 4 — The writer and the command
+### Phase 4 — The writer and the command — done
 
 - Writing, in one transaction, keyed for re-runs.
 - One `Contact` per name per company, plus the `Employment` row, plus the
@@ -410,11 +410,22 @@ no-op.
 | Contacts merged or split wrongly | Per-company identity, and the collisions are listed for review rather than resolved |
 | An import doubles the board | Every write is keyed; a re-run is asserted to change no counts |
 
-## 10. Done when
+## 10. Done
 
-- `uv run manage.py import_sheet clasp/'Crm-clasp-2 - Sheet2.csv'` writes
-  one opportunity with five steps, and the board renders it.
-- Running it twice changes nothing.
-- `--demo` writes to `demo.sqlite3` and the live database is untouched.
-- A file with a malformed cell writes nothing and says which cell.
-- `poe qa` is green.
+- The sample export, with §4.2's one cell fixed, writes one opportunity
+  with five steps, and the board renders it. ✓
+- Running it twice changes nothing. ✓
+- `--demo` writes to `demo.sqlite3` and the live database is untouched —
+  checked by hand against a real `demo.sqlite3`, not only in tests. ✓
+- The sample export *as committed* writes nothing and says
+  `row 1, column 6`. ✓
+- `poe qa` is green. ✓
+
+The committed sample is deliberately the un-fixed one: it is §4.2's
+reference, and both halves — the refusal and the clean import — are
+tested against it.
+
+Left to do, per AGENTS.md: archive this plan to
+`docs/archive/YYYY-MM-DD-HHMM-<shortsha>-003-import-the-sheet.md`. Not
+done here because the work is on a branch rather than merged, and because
+every module written for it cites this file by section.
