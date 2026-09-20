@@ -19,6 +19,7 @@ class DemoStep(NamedTuple):
     state: str
     date: dt.date
     title: str
+    contacts: tuple[str, ...] = ()
 
 
 class DemoNote(NamedTuple):
@@ -42,6 +43,10 @@ class DemoRow(NamedTuple):
 
 
 DEMO_CONTACT = "Ada Lovelace"
+
+# A step keeps several people, and the card prints them, so the demo board has
+# to show one step with two and one with none.
+DEMO_PANEL = ("Ada Lovelace", "Grace Hopper")
 
 # A pasted job ad — 1870 characters in the sample export, which is what the
 # description row has to lay out in columns without swallowing the page (§4.8).
@@ -68,7 +73,8 @@ DEMO_LONG_NOTE = (
 )
 
 # Chosen to exercise the board rather than to be realistic: every group is
-# represented, one row has no steps at all, one is archived, five carry an ad
+# represented, two steps name the people who were there and the rest name none,
+# one row has no steps at all, one is archived, five carry an ad
 # long enough to need a description row, and the notes between them cover all
 # four cases the summary card has to render — none, two, more than two, and one
 # long enough to be clamped on its own.
@@ -81,7 +87,7 @@ DEMO_ROWS: tuple[DemoRow, ...] = (
         job_description=DEMO_AD,
         steps=(
             DemoStep("unremarkable", dt.date(2026, 1, 20), "Applied via site"),
-            DemoStep("due", dt.date(2026, 3, 2), "Second interview booked"),
+            DemoStep("due", dt.date(2026, 3, 2), "Second interview booked", DEMO_PANEL),
             DemoStep("overdue", dt.date(2026, 2, 10), "Chased recruiter, no reply"),
         ),
         notes=(
@@ -109,7 +115,7 @@ DEMO_ROWS: tuple[DemoRow, ...] = (
         steps=(
             DemoStep("unremarkable", dt.date(2026, 2, 1), "Applied via site"),
             DemoStep("success", dt.date(2026, 2, 25), "Passed tech screen"),
-            DemoStep("going-well", dt.date(2026, 3, 11), "Panel went well"),
+            DemoStep("going-well", dt.date(2026, 3, 11), "Panel went well", DEMO_PANEL),
         ),
         notes=(
             DemoNote(dt.datetime(2026, 1, 12, 7, 45, tzinfo=dt.UTC), "Referral came from Ada"),
@@ -219,12 +225,16 @@ def seed_demo() -> list[Opportunity]:
             },
         )[0]
         for step in row.steps:
-            Step.objects.get_or_create(
+            built_step = Step.objects.get_or_create(
                 opportunity=opportunity,
                 state=State.objects.get(slug=step.state),
                 date=step.date,
                 defaults={"title": step.title},
-            )
+            )[0]
+            if step.contacts:
+                built_step.contacts.set(
+                    Contact.objects.get_or_create(name=name)[0] for name in step.contacts
+                )
         for note in row.notes:
             Note.objects.get_or_create(
                 opportunity=opportunity,

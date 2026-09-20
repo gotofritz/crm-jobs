@@ -1,0 +1,17 @@
+{# A new step is a blank card at the near end of the track, already in edit mode. #}
+{# No `<div>`: the track's closing tag is what says where the steps end. #}
+<article class="card card--step card--new" id="step-new">
+  <form class="card__edit" action="/opportunities/{{ opportunity.pk }}/steps/" method="post"
+        data-editing data-cancel="/new/cancel"
+        hx-post="/opportunities/{{ opportunity.pk }}/steps/"
+        hx-target="#step-new" hx-swap="outerHTML">
+    {% csrf_token %}
+    {% include "jobs/_step_fields.html" %}
+
+    <footer class="card__controls">
+      <button class="control" type="submit">Save</button>
+      <a class="control" href="/"
+         hx-get="/new/cancel" hx-target="#step-new" hx-swap="outerHTML">Cancel</a>
+    </footer>
+  </form>
+</article>

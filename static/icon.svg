@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- The glyph, not a drawing of it: the tab icon is whatever emoji font the
+       reader has, which is the one that will look right on their machine. -->
+  <text x="50" y="54" font-size="88" text-anchor="middle" dominant-baseline="central">🎯</text>
+</svg>

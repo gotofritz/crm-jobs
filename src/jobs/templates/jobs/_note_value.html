@@ -1,0 +1,3 @@
+{# A note has one value, which is the note. #}
+{% url 'field' kind='notes' pk=note.pk field='body' as value_url %}
+{% include "jobs/_editable.html" with url=value_url text=note.body label="Note" %}

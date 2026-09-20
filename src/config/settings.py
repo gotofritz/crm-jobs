@@ -62,6 +62,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Supplies `request.htmx`, which is how a view chooses a partial over a
+    # whole page (plan 001 §7). One small dependency, and it earns its place.
+    "django_htmx",
     "jobs",
 ]
 
@@ -76,6 +79,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Last: it only reads the request headers htmx sets, so nothing before it
+    # needs to wait on it.
+    "django_htmx.middleware.HtmxMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"

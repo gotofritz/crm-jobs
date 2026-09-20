@@ -1,0 +1,297 @@
+/* The controls, the editing affordances and the new-row highlight — plan 001
+   §7, §6.6.
+
+   There is no panel. A value on the board is a link that swaps itself for an
+   input, and a card being filled in — whether it is new or open for editing —
+   is the card itself with inputs in it.
+
+   Everything here is appearance. The templates carry identity only —
+   `data-new` on the row a create just made, semantic class names on the rest —
+   and this file decides what any of it looks like (§6.3). */
+
+:root {
+  --control-fg: #3f3f46;
+  --danger-fg: #9f1239;
+  /* Warm enough to find at a glance, pale enough not to read as a state: the
+     palette in §6.4 owns those, and a new row is not in one. */
+  --new-row-tint: #fff4cd;
+  --new-row-edge: #e0a800;
+}
+
+/* The controls a row carries: edit, add, archive, delete. Small, quiet, and
+   out of the way of the facts above them. */
+.card__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--rule);
+}
+
+/* Each control is an anchor or a submit button, so the two have to be told to
+   look the same. */
+.control {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--control-fg);
+  font: inherit;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.control--danger {
+  color: var(--danger-fg);
+}
+
+.control:hover,
+.control:focus-visible {
+  text-decoration-thickness: 2px;
+}
+
+/* A control's form is a wrapper around one button and must not take a line of
+   its own. */
+.card__controls form {
+  display: contents;
+}
+
+.board__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.button {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--card-radius);
+  background: var(--summary-bg);
+  color: var(--page-fg);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* --- The forms ---------------------------------------------------------- */
+
+.form__heading {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0 0 0.75rem;
+}
+
+.form__field label {
+  color: var(--muted-fg);
+  font-size: 0.8rem;
+}
+
+.form__field input,
+.form__field select,
+.form__field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--card-radius);
+  background: var(--summary-bg);
+  color: var(--page-fg);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.form__field textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.form__help,
+.form__field ul {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.form__field ul {
+  padding-left: 1rem;
+  color: var(--danger-fg);
+}
+
+.form__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+}
+
+/* A card opened without the script gets a page of its own, so it needs a width
+   that is not the whole window. */
+.form-page {
+  max-width: 22rem;
+}
+
+/* --- The new row -------------------------------------------------------- */
+
+/* A create lands the row in sorted order rather than on top (§6.6), so the
+   answer to "where did it go" is to point at it. */
+.opportunity[data-new] {
+  outline: 2px solid var(--new-row-edge);
+  outline-offset: 2px;
+  animation: new-row 2.5s ease-out;
+}
+
+@keyframes new-row {
+  from {
+    background: var(--new-row-tint);
+  }
+
+  to {
+    background: transparent;
+  }
+}
+
+/* The outline still says which row it is; only the fade goes. */
+@media (prefers-reduced-motion: reduce) {
+  .opportunity[data-new] {
+    animation: none;
+  }
+}
+
+@media (max-width: 30rem) {
+  .board__actions {
+    margin-left: 0;
+  }
+}
+
+
+/* --- Editing in place ---------------------------------------------------- */
+
+/* A value is a link, because without the script it has to go somewhere on its
+   own (§7). It must not look like one: the board is a page of values, and
+   underlining every one of them would be a page of underlines. The affordance
+   arrives on hover and on focus instead. */
+.editable {
+  display: inline-block;
+  min-width: 1.5rem;
+  border-bottom: 1px dashed transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  cursor: text;
+}
+
+.editable:hover,
+.editable:focus-visible {
+  border-bottom-color: var(--control-fg);
+}
+
+/* An empty value still has a box to click, and says what it is through its
+   `aria-label` rather than through printed text. */
+.editable--empty {
+  min-width: 2rem;
+  color: var(--muted-fg);
+}
+
+/* The input that replaced the value. It takes the value's place in the line, so
+   it is sized to the space rather than to the browser default. */
+.editable__form {
+  display: contents;
+}
+
+.editable__form input,
+.editable__form select,
+.editable__form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.1rem 0.25rem;
+  border: 1px solid var(--control-fg);
+  border-radius: 0.25rem;
+  background: var(--summary-bg);
+  color: var(--page-fg);
+  font: inherit;
+}
+
+/* `rows` on the widget decides the height, so it is sized to the card it sits
+   on; a `min-height` here would overrule that and put the bottom edge back off
+   the card. */
+.editable__form textarea {
+  resize: vertical;
+}
+
+.editable__form ul {
+  margin: 0.15rem 0 0;
+  padding-left: 1rem;
+  color: var(--danger-fg);
+  font-size: 0.75rem;
+}
+
+/* A card being filled in — new, or open for editing. Its inputs sit where the
+   values were, so the card does not change shape as it opens. */
+.card__edit input,
+.card__edit select,
+.card__edit textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.25rem;
+  background: var(--summary-bg);
+  color: var(--page-fg);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.card__edit textarea {
+  resize: vertical;
+}
+
+.card__edit ul {
+  margin: 0.15rem 0 0;
+  padding-left: 1rem;
+  color: var(--danger-fg);
+  font-size: 0.75rem;
+}
+
+/* A row that does not exist yet, so it reads as provisional until it is saved. */
+.opportunity--new .card--summary,
+.card--new {
+  border-style: dashed;
+}
+
+/* The control that removes a note. It leads the entry, so it has to read as a
+   thing to press rather than as punctuation: a box with an edge and a shadow,
+   which lifts when it is pressed. */
+.notes__delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 0.25rem;
+  background: var(--summary-bg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 20%);
+  color: var(--danger-fg);
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.notes__delete:hover,
+.notes__delete:focus-visible {
+  border-color: var(--danger-fg);
+}
+
+.notes__delete:active {
+  box-shadow: none;
+  transform: translateY(1px);
+}

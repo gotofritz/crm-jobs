@@ -1,54 +1,83 @@
 {# Deliberately outside the state palette: it is a different kind of object (§6.4). #}
+{# Two modes. Out of edit mode every value is a link that swaps itself for an #}
+{# input, and a field with nothing in it is left off the card entirely — a label #}
+{# and a dash is an 18rem column spent on nothing. In edit mode the whole card is #}
+{# one form with every field on it, empty ones included, which is the only way #}
+{# to reach one; Done submits it. #}
 {# `aria-expanded` starts true and there is no `data-collapsed`, so a browser #}
 {# that never runs the script shows the whole card at every width (§7). #}
 <article class="card card--summary" data-summary>
-  <h2 class="card__heading">
+  {% if editing %}
+    <form class="card__edit" action="/opportunities/{{ opportunity.pk }}/edit" method="post"
+          hx-post="/opportunities/{{ opportunity.pk }}/edit"
+          hx-target="#opportunity-{{ opportunity.pk }}" hx-swap="outerHTML">
+      {% csrf_token %}
+      {% include "jobs/_opportunity_fields.html" %}
+
+      <footer class="card__controls">
+        <button class="control" type="submit">Done</button>
+        <a class="control" href="/"
+           hx-get="/" hx-select="#opportunity-{{ opportunity.pk }}"
+           hx-target="#opportunity-{{ opportunity.pk }}" hx-swap="outerHTML">Cancel</a>
+      </footer>
+    </form>
+
+    {# Outside the form on purpose: a note's delete is a form, and forms do not #}
+    {# nest. Inside the card, because that is where the notes belong. #}
+    {% include "jobs/_notes.html" %}
+  {% else %}
+    <h2 class="card__heading">
+      <span class="card__title">{% include "jobs/_opportunity_value.html" with field="title" %}</span>
+      <span class="card__subtitle">{% include "jobs/_opportunity_value.html" with field="company" %}</span>
+    </h2>
+
     <button class="card__head" type="button" data-summary-toggle
             aria-expanded="true" aria-controls="summary-{{ opportunity.pk }}">
-      <span class="card__title">{{ opportunity.title }}</span>
-      <span class="card__subtitle">{{ opportunity.company.name }}</span>
+      <span class="visually-hidden">Details</span>
     </button>
-  </h2>
 
-  <div class="card__body" id="summary-{{ opportunity.pk }}">
-    <dl class="card__facts">
-      <dt>Applied</dt>
-      <dd><time datetime="{{ opportunity.date|date:'Y-m-d' }}">{{ opportunity.date|date:'j M Y' }}</time></dd>
-      {% if opportunity.source %}
-        <dt>Source</dt>
-        <dd>{{ opportunity.source.name }}</dd>
-      {% endif %}
-      {% if opportunity.contact %}
-        <dt>Contact</dt>
-        <dd>{{ opportunity.contact.name }}</dd>
-      {% endif %}
-    </dl>
+    <div class="card__body" id="summary-{{ opportunity.pk }}">
+      <dl class="card__facts">
+        <dt>Applied</dt>
+        <dd>{% include "jobs/_opportunity_value.html" with field="date" %}</dd>
+        {% if opportunity.source %}
+          <dt>Source</dt>
+          <dd>{% include "jobs/_opportunity_value.html" with field="source" %}</dd>
+        {% endif %}
+        {% if opportunity.contact %}
+          <dt>Contact</dt>
+          <dd>{% include "jobs/_opportunity_value.html" with field="contact" %}</dd>
+        {% endif %}
+        {% if opportunity.company.sector %}
+          <dt>Sector</dt>
+          <dd>{% include "jobs/_opportunity_value.html" with field="company_sector" %}</dd>
+        {% endif %}
+        {% if opportunity.company.url %}
+          <dt>Site</dt>
+          <dd>{% include "jobs/_opportunity_value.html" with field="company_url" %}</dd>
+        {% endif %}
+        {% if opportunity.company.linkedin_url %}
+          <dt>LinkedIn</dt>
+          <dd>{% include "jobs/_opportunity_value.html" with field="company_linkedin_url" %}</dd>
+        {% endif %}
+        {% if opportunity.company.head_office %}
+          <dt>Office</dt>
+          <dd>{% include "jobs/_opportunity_value.html" with field="company_head_office" %}</dd>
+        {% endif %}
+      </dl>
 
-    {% if opportunity.job_description %}
-      {# Opens the description block below the steps. `hidden` until the script #}
-      {# runs, because until then the block's own bar is the control (§7). #}
-      <button class="card__toggle" type="button" data-description-toggle
-              aria-expanded="false" aria-controls="description-{{ opportunity.pk }}" hidden>
-        Job description
-      </button>
-    {% endif %}
-
-    {% if opportunity.ordered_notes %}
-      {# Notes are rows, newest first, so the card prints a list rather than prose. #}
-      {# Every one of them shows without the script; the script clamps the list to #}
-      {# two notes or four lines and takes `hidden` off the toggle (§7). #}
-      <div class="notes" data-notes>
-        <ul class="notes__list" id="notes-{{ opportunity.pk }}" data-notes-list>
-          {% for note in opportunity.ordered_notes %}
-            <li class="notes__item">{{ note.body }}</li>
-          {% endfor %}
-        </ul>
-
-        <button class="card__toggle" type="button" data-notes-toggle
-                aria-expanded="true" aria-controls="notes-{{ opportunity.pk }}" hidden>
-          Fewer notes
+      {% if opportunity.job_description %}
+        {# Opens the description block below the steps. `hidden` until the script #}
+        {# runs, because until then the block's own bar is the control (§7). #}
+        <button class="card__toggle" type="button" data-description-toggle
+                aria-expanded="false" aria-controls="description-{{ opportunity.pk }}" hidden>
+          Job description
         </button>
-      </div>
-    {% endif %}
-  </div>
+      {% endif %}
+
+      {% include "jobs/_notes.html" %}
+
+      {% include "jobs/_row_controls.html" %}
+    </div>
+  {% endif %}
 </article>

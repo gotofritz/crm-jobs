@@ -1,0 +1,18 @@
+{% load static %}<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Opportunities{% endblock %}</title>
+    {# Named, so the browser stops guessing at /favicon.ico and getting a 404. #}
+    <link rel="icon" href="{% static 'icon.svg' %}" type="image/svg+xml">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    {# Both vendored, both deferred, no build step. htmx first, because board.js #}
+    {# hooks its events; the board is complete without either (§5, §7). #}
+    <script src="{% static 'js/htmx.min.js' %}" defer></script>
+    <script src="{% static 'js/board.js' %}" defer></script>
+  </head>
+  <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    {% block body %}{% endblock %}
+  </body>
+</html>

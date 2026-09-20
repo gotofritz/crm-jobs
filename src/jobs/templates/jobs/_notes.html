@@ -1,0 +1,28 @@
+{# Notes are rows, newest first, so the card prints a list rather than prose. #}
+{# Each entry leads with the control that removes it: it stands where a bullet #}
+{# would, so the list needs no second marker. #}
+{# It renders while the card is being edited too, but never inside the edit #}
+{# form — a note's delete is a form of its own, and forms do not nest. #}
+{% if opportunity.ordered_notes or new_note_form %}
+  {# Every note shows without the script; the script clamps the list to two #}
+  {# notes or four lines and takes `hidden` off the toggle (§7). #}
+  <div class="notes" data-notes>
+    <ul class="notes__list" id="notes-{{ opportunity.pk }}" data-notes-list>
+      {# A blank note goes in newest-first, which is the top. #}
+      {% if new_note_form %}
+        {% include "jobs/_new_note.html" with form=new_note_form %}
+      {% endif %}
+      {% for note in opportunity.ordered_notes %}
+        <li class="notes__item">
+          {% include "jobs/_note_controls.html" %}
+          {% include "jobs/_note_value.html" %}
+        </li>
+      {% endfor %}
+    </ul>
+
+    <button class="card__toggle" type="button" data-notes-toggle
+            aria-expanded="true" aria-controls="notes-{{ opportunity.pk }}" hidden>
+      Fewer notes
+    </button>
+  </div>
+{% endif %}

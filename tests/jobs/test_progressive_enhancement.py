@@ -52,10 +52,22 @@ def test_the_board_loads_the_script() -> None:
     assert "defer" in html
 
 
-@pytest.mark.usefixtures("row")
-def test_every_hook_the_script_reaches_for_is_in_the_markup(board_js: str) -> None:
-    """Renaming one and not the other is silent, so it fails here instead."""
-    html = render_board()
+def test_every_hook_the_script_reaches_for_is_in_the_markup(
+    row: Opportunity, board_js: str
+) -> None:
+    """Renaming one and not the other is silent, so it fails here instead.
+
+    Every markup the app renders is read, not only the resting board: `data-new`
+    is on the one a create leaves behind (§6.6), and `data-editing` on the input
+    a value swaps itself for. A hook that only appears mid-interaction is still
+    a hook the script reaches for.
+    """
+    client = Client()
+    html = (
+        render_board()
+        + client.get(f"/?new={row.pk}").content.decode()
+        + client.get(f"/opportunities/{row.pk}/field/title").content.decode()
+    )
     hooks = {match["hook"] for match in _HOOKS.finditer(board_js)}
 
     assert hooks, "the script selects on no data attributes at all"
@@ -73,11 +85,20 @@ def test_without_the_script_every_summary_is_already_open() -> None:
 
 
 @pytest.mark.usefixtures("row")
-def test_the_summary_head_is_a_button_inside_the_heading() -> None:
-    """The disclosure pattern: the heading names the row, the button toggles it."""
-    html = render_board()
+def test_the_summary_head_is_a_button_beside_the_heading() -> None:
+    """The disclosure pattern: the heading names the row, the button toggles it.
 
-    assert re.search(r"<h2[^>]*>\s*<button[^>]*data-summary-toggle", html) is not None
+    The button used to wrap the heading's two lines. It cannot any more: both of
+    them are links now, and a button may not contain one. So it sits beside the
+    heading as a chevron of its own, and CSS puts it in the corner.
+    """
+    html = render_board()
+    heading = re.search(r"<h2[^>]*>(.*?)</h2>", html, re.DOTALL)
+
+    assert heading is not None
+    assert "data-summary-toggle" not in heading[1]
+    assert re.search(r"<button[^>]*data-summary-toggle[^>]*>", html) is not None
+    assert re.search(r'aria-controls="summary-\d+"', html) is not None
 
 
 @pytest.mark.usefixtures("row")

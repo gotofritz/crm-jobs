@@ -1,0 +1,9 @@
+{# One value on the board, and the link that opens it for editing. #}
+{# An anchor rather than a span: without the script there is no swap, so it has #}
+{# to be something that goes somewhere on its own (§7). CSS is what makes it #}
+{# read as text until it is hovered — this carries identity, not appearance. #}
+{# A value with nothing in it still has to be clickable, so it keeps its box and #}
+{# says what it is through `aria-label` rather than through printed text. #}
+<a class="editable{% if not text %} editable--empty{% endif %}" href="{{ url }}"
+   {% if label %}aria-label="{{ label }}"{% endif %}
+   hx-get="{{ url }}" hx-target="this" hx-swap="outerHTML">{% if iso %}<time datetime="{{ iso }}">{{ text }}</time>{% elif text %}{{ text }}{% else %}{{ placeholder }}{% endif %}</a>

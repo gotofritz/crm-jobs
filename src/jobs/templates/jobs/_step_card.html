@@ -1,24 +1,64 @@
 {# Identity only. What `data-state` and `data-group` look like is CSS's business (§6.3). #}
+{# No `<div>` in here: the track is one, and its closing tag is what says where #}
+{# the steps end. #}
+{# Out of edit mode each value is a link that swaps itself for an input, and the #}
+{# optional ones are left off when empty. In edit mode the card is one form. #}
 <article class="card card--step"
          data-state="{{ step.state.slug }}"
          data-group="{{ step.state.group|lower }}">
-  <h3 class="card__title">{{ step.title }}</h3>
-  {# Printed, not just coloured: colour is never the only channel (§6.4). #}
-  {# A state with nothing to print — UNREMARKABLE — leaves no empty element. #}
-  {% if step.state.name %}<p class="card__subtitle">{{ step.state.name }}</p>{% endif %}
+  {% if editing_step_pk == step.pk %}
+    <form class="card__edit" action="/steps/{{ step.pk }}/edit" method="post"
+          hx-post="/steps/{{ step.pk }}/edit"
+          hx-target="#opportunity-{{ step.opportunity_id }}" hx-swap="outerHTML">
+      {% csrf_token %}
+      {% include "jobs/_step_fields.html" %}
 
-  <dl class="card__facts">
-    <dt>When</dt>
-    <dd>
-      <time datetime="{{ step.date|date:'Y-m-d' }}">{{ step.date|date:'j M Y' }}</time>
-      {% if step.time %}{{ step.time|time:'H:i' }}{% endif %}
-    </dd>
-  </dl>
+      <footer class="card__controls">
+        <button class="control" type="submit">Done</button>
+        <a class="control" href="/"
+           hx-get="/" hx-select="#opportunity-{{ step.opportunity_id }}"
+           hx-target="#opportunity-{{ step.opportunity_id }}" hx-swap="outerHTML">Cancel</a>
+      </footer>
+    </form>
+  {% else %}
+    <h3 class="card__title">{% include "jobs/_step_value.html" with field="title" %}</h3>
 
-  {% if step.comments %}
-    <details class="card__notes">
-      <summary>Notes</summary>
-      <p>{{ step.comments }}</p>
-    </details>
+    {# Printed, not just coloured: colour is never the only channel (§6.4). #}
+    {# A state with nothing to print — UNREMARKABLE — prints nothing, and keeps #}
+    {# the subtitle class off the card so it still reads as bare (§6.1). The box #}
+    {# stays clickable, because a state that cannot be changed is not much use. #}
+    <p class="card__state{% if step.state.name %} card__subtitle{% endif %}">
+      {% include "jobs/_step_value.html" with field="state" %}
+    </p>
+
+    <dl class="card__facts">
+      <dt>When</dt>
+      <dd>
+        {% include "jobs/_step_value.html" with field="date" %}
+        {% if step.time %}{% include "jobs/_step_value.html" with field="time" %}{% endif %}
+      </dd>
+      {% if step.contact_names %}
+        <dt>Who</dt>
+        <dd>{% include "jobs/_step_value.html" with field="contacts" %}</dd>
+      {% endif %}
+      {% if step.comments %}
+        <dt>Notes</dt>
+        <dd>{% include "jobs/_step_value.html" with field="comments" %}</dd>
+      {% endif %}
+    </dl>
+
+    <footer class="card__controls">
+      <a class="control" href="/steps/{{ step.pk }}/edit"
+         hx-get="/steps/{{ step.pk }}/edit"
+         hx-target="#opportunity-{{ step.opportunity_id }}" hx-swap="outerHTML">Edit</a>
+
+      <form action="/steps/{{ step.pk }}/delete" method="post"
+            hx-post="/steps/{{ step.pk }}/delete"
+            hx-target="#opportunity-{{ step.opportunity_id }}" hx-swap="outerHTML"
+            hx-confirm="Delete this step? This cannot be undone.">
+        {% csrf_token %}
+        <button class="control control--danger" type="submit">Delete</button>
+      </form>
+    </footer>
   {% endif %}
 </article>

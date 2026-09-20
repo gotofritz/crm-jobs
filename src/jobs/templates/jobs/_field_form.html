@@ -1,0 +1,31 @@
+{# The input that replaced a value. One field, and no save button: it commits on #}
+{# leaving the field or on Enter, and Escape puts the value back — `data-cancel` #}
+{# is where the script asks for it (§7). #}
+{# `focusout` rather than `blur`, and with no `from:` selector. `hx-trigger` is #}
+{# a comma-separated list, so a selector containing a comma is read as several #}
+{# triggers: `:is(input, select, textarea)` became the literal events `select` #}
+{# and `textarea)`. `focusout` bubbles where `blur` does not, so the form hears #}
+{# its own control without naming it, and there is no comma to split on. #}
+{# Without the script this is an ordinary form that posts and lands on the #}
+{# board, so the value is still editable with nothing running. #}
+<form class="editable__form" action="{{ url }}" method="post" data-editing
+      data-cancel="{{ url }}/cancel"
+      hx-post="{{ url }}" hx-target="this" hx-swap="outerHTML"
+      hx-trigger="submit, focusout">
+  {% csrf_token %}
+  {% for field in form %}
+    {{ field }}
+    {{ field.errors }}
+  {% endfor %}
+
+  {# A picklist grows by typing into it; the list only suggests what is there #}
+  {# already, so nothing here stops a new name (§6.9). #}
+  {% for id, options in datalists.items %}
+    <datalist id="{{ id }}">
+      {% for option in options %}<option value="{{ option }}"></option>{% endfor %}
+    </datalist>
+  {% endfor %}
+
+  {# Only reached with the script off, where blur and Escape mean nothing. #}
+  <noscript><button class="button" type="submit">Save</button></noscript>
+</form>

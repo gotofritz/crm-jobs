@@ -1,0 +1,23 @@
+{# A new opportunity is a blank row at the top of the board, already in edit #}
+{# mode. The same shape an edit produces, because there is one way a card looks #}
+{# while it is being filled in. #}
+{# It saves with one submit rather than on blur: there is no row yet to save a #}
+{# field into. #}
+<section class="opportunity opportunity--new" id="opportunity-new">
+  <article class="card card--summary">
+    <form class="card__edit" action="/opportunities/" method="post" data-editing
+          data-cancel="/new/cancel"
+          hx-post="/opportunities/" hx-target="#opportunity-new" hx-swap="outerHTML">
+      {% csrf_token %}
+      {% include "jobs/_opportunity_fields.html" %}
+
+      <footer class="card__controls">
+        <button class="control" type="submit">Save</button>
+        {# Nothing was created, so cancelling is taking the blank away. Without #}
+        {# the script the href goes back to a board that never had it. #}
+        <a class="control" href="/"
+           hx-get="/new/cancel" hx-target="#opportunity-new" hx-swap="outerHTML">Cancel</a>
+      </footer>
+    </form>
+  </article>
+</section>

@@ -1,0 +1,9 @@
+{# The note itself is the edit control, so all that is left is removing it. #}
+{# It leads the entry rather than trailing it: where a bullet would be. #}
+<form class="notes__remove" action="/notes/{{ note.pk }}/delete" method="post"
+      hx-post="/notes/{{ note.pk }}/delete"
+      hx-target="#opportunity-{{ opportunity.pk }}" hx-swap="outerHTML"
+      hx-confirm="Delete this note? This cannot be undone.">
+  {% csrf_token %}
+  <button class="notes__delete" type="submit" aria-label="Delete note">&times;</button>
+</form>

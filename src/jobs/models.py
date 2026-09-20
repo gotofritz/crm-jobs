@@ -18,6 +18,11 @@ if TYPE_CHECKING:
     from django.db.models.manager import RelatedManager
 
 
+# The state a new opportunity's first step lands in (§6.6). A slug rather than a
+# row, because `State` is data and this module must not query at import time.
+DEFAULT_STEP_STATE = "unremarkable"
+
+
 class Group(models.TextChoices):
     """The three buckets a state can sit in (§6.2)."""
 
@@ -159,7 +164,7 @@ class OpportunityQuerySet(models.QuerySet["Opportunity"]):
         query per row.
         """
         rows = self.select_related("company", "source", "contact").prefetch_related(
-            "steps__state", "notes"
+            "steps__state", "steps__contacts", "notes"
         )
         return sort_opportunities(rows)
 
@@ -204,6 +209,23 @@ class Opportunity(models.Model):
         """Name the opportunity by its title and company."""
         return f"{self.title} at {self.company.name}"
 
+    def add_first_step(self) -> "Step":
+        """Open this opportunity with a step, the way the GAS app did (§4.4).
+
+        The step is dated when the application went out and carries the
+        opportunity's contact, so the row has something in its track from the
+        moment it exists. A domain rule, so it lives here: a second way of
+        creating an opportunity must not be able to skip it.
+        """
+        step = Step.objects.create(
+            opportunity=self,
+            state=State.objects.get(slug=DEFAULT_STEP_STATE),
+            date=self.date,
+        )
+        if self.contact is not None:
+            step.contacts.add(self.contact)
+        return step
+
     @property
     def ordered_steps(self) -> "list[Step]":
         """This opportunity's steps in §4.5 order, so the board template need not sort.
@@ -240,6 +262,16 @@ class Step(models.Model):
     def __str__(self) -> str:
         """Name the step by its state and date."""
         return f"{self.state} on {self.date.isoformat()}"
+
+    @property
+    def contact_names(self) -> str:
+        """Who this step was with, as the card prints it and the form takes it back.
+
+        Sorted in Python rather than with `order_by`, which would issue a query
+        of its own and undo the prefetch `in_board_order` set up — the same
+        reason `ordered_steps` sorts the way it does.
+        """
+        return ", ".join(sorted(person.name for person in self.contacts.all()))
 
 
 class Note(models.Model):
