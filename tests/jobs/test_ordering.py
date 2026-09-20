@@ -11,12 +11,13 @@ import pytest
 from django.utils import timezone
 from pytest_django.fixtures import DjangoAssertNumQueries
 
-from jobs.models import Company, Group, Opportunity, State, Step
+from jobs.models import Company, Group, Note, Opportunity, State, Step
 from jobs.ordering import (
     GROUP_RANK,
     UNRANKED,
     group_rank,
     opportunity_sort_key,
+    sort_notes,
     sort_steps,
     top_step,
 )
@@ -226,12 +227,16 @@ def test_in_board_order_keys_an_opportunity_on_its_top_step(company: Company) ->
 def test_in_board_order_loads_steps_and_states_up_front(
     company: Company, django_assert_num_queries: DjangoAssertNumQueries
 ) -> None:
-    """Prefetching is what stops the sort reaching back into the database per row (§4.5)."""
+    """Prefetching is what stops the sort reaching back into the database per row (§4.5).
+
+    Rows, steps and states, plus the notes the summary card prints: four
+    queries however many opportunities the board holds.
+    """
     for title in ("first", "second", "third"):
         opportunity = add_opportunity(company, title=title)
         add_step(opportunity, slug="due", date="2026-01-01")
 
-    with django_assert_num_queries(3):
+    with django_assert_num_queries(4):
         assert [
             row.steps.all()[0].state.name for row in Opportunity.objects.live().in_board_order()
         ] == ["Due", "Due", "Due"]
@@ -251,3 +256,31 @@ def test_in_archive_order_is_most_recently_archived_first(company: Company) -> N
     )
 
     assert list(Opportunity.objects.archived().in_archive_order()) == [newer, older]
+
+
+def make_note(*, body: str, written: str) -> Note:
+    """An unsaved note, timestamped by hand so the order is the test's to decide."""
+    return Note(body=body, created_at=dt.datetime.fromisoformat(written))
+
+
+def test_notes_are_newest_first() -> None:
+    """Unlike steps, notes have one order and no groups: the last thing written is read first."""
+    oldest = make_note(body="applied on a whim", written="2026-01-02T09:00")
+    newest = make_note(body="not sure about this", written="2026-03-04T17:30")
+    middle = make_note(body="recruiter was pushy", written="2026-02-01T12:00")
+
+    assert sort_notes([middle, oldest, newest]) == [newest, middle, oldest]
+
+
+def test_notes_written_in_the_same_instant_keep_the_later_row_on_top() -> None:
+    """A seed writes a batch in one go, so the tie-break decides what the board shows."""
+    same_moment = "2026-02-01T12:00"
+    first = Note(pk=1, body="first", created_at=dt.datetime.fromisoformat(same_moment))
+    second = Note(pk=2, body="second", created_at=dt.datetime.fromisoformat(same_moment))
+
+    assert sort_notes([first, second]) == [second, first]
+
+
+def test_sorting_no_notes_is_not_an_error() -> None:
+    """Most opportunities carry none, and an empty list is what the board renders."""
+    assert sort_notes([]) == []

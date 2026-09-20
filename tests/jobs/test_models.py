@@ -11,6 +11,7 @@ from jobs.models import (
     Company,
     Contact,
     Group,
+    Note,
     Opportunity,
     Sector,
     Source,
@@ -72,8 +73,9 @@ def test_state_has_no_colour_field() -> None:
 
 
 def test_opportunity_defaults(opportunity: Opportunity) -> None:
-    """A new opportunity is live, unattributed and uncommented (§6)."""
-    assert opportunity.comments == ""
+    """A new opportunity is live, unattributed, and carries neither an ad nor a note (§6)."""
+    assert opportunity.job_description == ""
+    assert list(opportunity.notes.all()) == []
     assert opportunity.archived_at is None
     assert opportunity.source is None
     assert opportunity.contact is None
@@ -197,3 +199,46 @@ def test_models_are_readable_in_the_admin(
     assert str(sector) == "Robotics"
     assert str(source) == "Careers page"
     assert str(contact) == "Ada Lovelace"
+
+
+def test_a_note_belongs_to_an_opportunity(opportunity: Opportunity) -> None:
+    """A remark on an application — "not sure about this" — as its own row, not prose."""
+    note = Note.objects.create(opportunity=opportunity, body="Not sure about this one")
+
+    assert note.created_at is not None
+    assert list(opportunity.notes.all()) == [note]
+    assert str(note) == "Not sure about this one"
+
+
+def test_a_notes_timestamp_can_be_written(opportunity: Opportunity) -> None:
+    """`auto_now_add` would make the seed's fixed dates unwritable (`jobs/demo.py`)."""
+    written = dt.datetime(2026, 2, 1, 9, 30, tzinfo=dt.UTC)
+
+    note = Note.objects.create(opportunity=opportunity, body="Chased them", created_at=written)
+
+    assert note.created_at == written
+
+
+def test_deleting_an_opportunity_takes_its_notes(opportunity: Opportunity) -> None:
+    """A note says nothing away from the application it was written on."""
+    Note.objects.create(opportunity=opportunity, body="Nice people, vague about money")
+
+    opportunity.delete()
+
+    assert Note.objects.count() == 0
+
+
+def test_ordered_notes_puts_the_newest_at_the_top(opportunity: Opportunity) -> None:
+    """The board reads `ordered_notes`, so the rule cannot drift into a template (§6.3)."""
+    for day, body in ((2, "applied on a whim"), (28, "still nothing"), (14, "recruiter called")):
+        Note.objects.create(
+            opportunity=opportunity,
+            body=body,
+            created_at=dt.datetime(2026, 2, day, 9, 0, tzinfo=dt.UTC),
+        )
+
+    assert [note.body for note in opportunity.ordered_notes] == [
+        "still nothing",
+        "recruiter called",
+        "applied on a whim",
+    ]

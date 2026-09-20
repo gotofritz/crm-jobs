@@ -221,14 +221,31 @@ reaches `models.py`, the design is wrong — see `docs/plans/001` §6.3.
 - State palette lives in one stylesheet, with a `data-group` fallback so
   an unstyled state still renders
 - Layout contract: an opportunity row is two blocks — a fixed-width
-  summary, and a steps block holding the steps newest-first. The steps
-  block holds a track, and the track is the scroller, not the row
+  summary, and a steps block holding the steps newest-first — plus a
+  third that wraps onto a line of its own underneath for the job
+  description. The steps block holds a track, and the track is the
+  scroller, not the row
+- A row sits on a tray: one background under both its lines, so an
+  opened description reads as the row's own. Rows sit `--row-spacing`
+  apart and the blocks inside one `--board-gap` apart; the first must
+  stay the larger. The tray's edge is solid `--tray-rule`, darker than a
+  card's `--rule`; never dashed — dashed is GHOSTED's second channel
+- The summary card carries the notes as a bullet list, newest first,
+  clamped to two notes or four lines behind a toggle. The job
+  description is the wrapped block, a native `<details>` laid out in
+  columns
+- On a laptop the card also carries the control that opens the
+  description, and the closed block is out of sight entirely; on a
+  phone the block keeps its own bar, because the card is collapsed to
+  two lines there. Without the script the bar is the only control at
+  either width
 - The track's scrollbar is hidden, not its scrolling: an arrow either
   side moves it a card at a time, and the wheel, trackpad and keyboard
   still work. An arrow shows only while it has somewhere to go
 - On a phone the row stacks: the summary spans the viewport and
-  collapses to its title and company, and the steps become one card at
-  a time with an arrow either side, so nothing scrolls sideways
+  collapses to its title and company, the steps become one card at a
+  time with an arrow either side, and the job description is one cell
+  under those, so nothing scrolls sideways
 - One hand-written script, `static/js/board.js`, vendored and deferred.
   Everything in it is an enhancement: without it every summary is open
   and the steps scroll. `.has-js` scopes the rules that depend on it

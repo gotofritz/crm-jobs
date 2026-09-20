@@ -1,0 +1,12 @@
+{# The pasted ad gets a block of its own under the steps: an 18rem summary #}
+{# cannot hold 1870 characters (§4.8), and a block beside the steps would push #}
+{# them down. #}
+{# A native `<details>`, so its bar opens it without a script. Once the script #}
+{# runs, the laptop hides both the bar and the closed block and the summary #}
+{# card's control takes over; a phone keeps the bar, because the summary it #}
+{# would live in is itself collapsed to two lines there (§7). #}
+<details class="opportunity__description" id="description-{{ opportunity.pk }}" data-description>
+  <summary class="description__summary">Job description</summary>
+  {# The columns are CSS's business; this is one block of text either way (§6.3). #}
+  <div class="description__body">{{ opportunity.job_description }}</div>
+</details>

@@ -1,4 +1,6 @@
-{# A row is two blocks: the summary, and the steps. On a phone they stack (§7). #}
+{# A row is two blocks — the summary and the steps — and, when there is an ad to #}
+{# show, a third that wraps onto a line of its own underneath them. On a phone #}
+{# all three stack (§7). #}
 <section class="opportunity" id="opportunity-{{ opportunity.pk }}">
   {% include "jobs/_summary_card.html" %}
 
@@ -19,4 +21,8 @@
       <span aria-hidden="true">&rsaquo;</span>
     </button>
   </div>
+
+  {% if opportunity.job_description %}
+    {% include "jobs/_job_description.html" %}
+  {% endif %}
 </section>

@@ -6,7 +6,17 @@ search exists, the only way to look at archived opportunities (§6.5).
 
 from django.contrib import admin
 
-from jobs.models import Company, Contact, Employment, Opportunity, Sector, Source, State, Step
+from jobs.models import (
+    Company,
+    Contact,
+    Employment,
+    Note,
+    Opportunity,
+    Sector,
+    Source,
+    State,
+    Step,
+)
 
 
 class StepInline(admin.TabularInline):
@@ -16,6 +26,13 @@ class StepInline(admin.TabularInline):
     extra = 1
     autocomplete_fields = ("state",)
     filter_horizontal = ("contacts",)
+
+
+class NoteInline(admin.TabularInline):
+    """Notes are written on their opportunity, and the board only reads them back."""
+
+    model = Note
+    extra = 1
 
 
 class EmploymentInline(admin.TabularInline):
@@ -81,13 +98,13 @@ class EmploymentAdmin(admin.ModelAdmin):
 
 @admin.register(Opportunity)
 class OpportunityAdmin(admin.ModelAdmin):
-    """An opportunity and its steps are edited together."""
+    """An opportunity, its notes and its steps are edited together."""
 
     list_display = ("title", "company", "date", "archived_at")
     list_filter = ("archived_at", "source")
     search_fields = ("title", "company__name")
     autocomplete_fields = ("company", "source", "contact")
-    inlines = (StepInline,)
+    inlines = (NoteInline, StepInline)
 
 
 @admin.register(Step)
@@ -98,3 +115,13 @@ class StepAdmin(admin.ModelAdmin):
     list_filter = ("state",)
     autocomplete_fields = ("state",)
     filter_horizontal = ("contacts",)
+
+
+@admin.register(Note)
+class NoteAdmin(admin.ModelAdmin):
+    """Until the board can write one, this is where a note is added or removed (§6.9)."""
+
+    list_display = ("opportunity", "created_at")
+    autocomplete_fields = ("opportunity",)
+    ordering = ("-created_at",)
+    search_fields = ("body",)

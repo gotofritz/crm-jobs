@@ -1,15 +1,17 @@
-"""Ordering rules ported from the GAS app — plan 001 §4.5.
+"""The board's ordering rules — plan 001 §4.5, and the notes order beside them.
 
 The one piece of real domain logic in the port. It lives here, as pure
 functions over steps, so it can be tested without a database and cannot drift
 into a view or a template (§6.3). Nothing in this module imports the models at
 runtime; the models import it.
 
-Two orders are defined, and they are not the same order:
+Three orders are defined, and no two of them are the same order:
 
 * steps inside an opportunity, `sort_steps`;
 * opportunities inside the board, `sort_opportunities`, keyed on the step
-  `sort_steps` leaves at the front.
+  `sort_steps` leaves at the front;
+* notes inside an opportunity, `sort_notes`, which is the simple one — the
+  GAS app had no notes, so nothing about it is ported.
 """
 
 import datetime as dt
@@ -18,7 +20,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from jobs.models import Opportunity, Step
+    from jobs.models import Note, Opportunity, Step
 
 # §4.5. A business rule, not data: adding a group means deciding where it
 # ranks, which is a code change either way (§6.1).
@@ -99,3 +101,17 @@ def sort_opportunities(opportunities: "Iterable[Opportunity]") -> "list[Opportun
         opportunities,
         key=lambda opportunity: opportunity_sort_key(top_step(opportunity.steps.all())),
     )
+
+
+def note_sort_key(note: "Note") -> tuple[dt.datetime, int]:
+    """Sort key for a note within its opportunity, read with `reverse=True`.
+
+    The row's own id is the tie-break: a batch written in one go can share a
+    timestamp to the microsecond, and an unsaved note has no id at all.
+    """
+    return (note.created_at, note.pk or 0)
+
+
+def sort_notes(notes: "Iterable[Note]") -> "list[Note]":
+    """Notes newest first — the last thing written about an opportunity is read first."""
+    return sorted(notes, key=note_sort_key, reverse=True)

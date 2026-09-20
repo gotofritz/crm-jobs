@@ -10,13 +10,25 @@
    looks like; that is states.css. */
 
 :root {
+  /* Two spacings, and the difference between them is what groups a row: inside
+     one, blocks sit `--board-gap` apart; between rows it is `--row-spacing`. */
   --board-gap: 0.5rem;
+  --row-spacing: 0.9rem;
   --summary-width: 18rem;
   --step-width: 16rem;
   --card-radius: 0.5rem;
+  --row-radius: 0.65rem;
   --card-padding: 0.75rem;
   --rule: #d4d4d4;
-  --page-bg: #fafafa;
+  /* Darker than a card's edge, and doing a different job: a card's rule
+     separates two things sitting on the same tray, this separates the rows. */
+  --tray-rule: #ddd;
+  /* The page is the darker of the two, so the tray a row sits on reads against
+     it. Going the other way — tinting the tray — would put it among the pale
+     end of the state palette, where UNREMARKABLE is #f5f5f5 and GHOSTED #e0e0e0
+     (§6.4). */
+  --page-bg: #eceded;
+  --row-bg: #fafafa;
   --page-fg: #1a1a1a;
   --muted-fg: #525252;
   --summary-bg: #ffffff;
@@ -53,15 +65,33 @@ body {
 .board {
   display: flex;
   flex-direction: column;
-  gap: var(--board-gap);
+  gap: var(--row-spacing);
 }
 
-/* Two blocks. The row itself never scrolls — if it did, the scrollbar would run
-   under the summary card as well as the steps, which is what gave the game away. */
+/* Two blocks, and a third when there is an ad to show. The row itself never
+   scrolls — if it did, the scrollbar would run under the summary card as well as
+   the steps, which is what gave the game away.
+
+   It wraps, so the job description lands on a line of its own underneath rather
+   than squeezing in beside the other two and shrinking both.
+
+   The tray under it is what says the two lines are one opportunity. Open a
+   description without it and the ad is a bar between two rows, belonging to
+   whichever of them the reader guesses. */
 .opportunity {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--board-gap);
   align-items: stretch;
+  padding: var(--board-gap);
+  background: var(--row-bg);
+  /* The fill is faint by design, so the edge is what carries the grouping.
+     Solid: a 1px dotted line is never read as dots, only as a fainter version
+     of the same line, which is the opposite of the job. Never dashed either —
+     GHOSTED wears `border-style: dashed` as its second channel (§6.4), and a
+     dashed tray would be that signal again where it means nothing. */
+  border: 1px solid var(--tray-rule);
+  border-radius: var(--row-radius);
 }
 
 /* The steps region: a track, with room for an arrow either side of it. */
@@ -210,16 +240,114 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* The notes list. Every note shows until the script runs; below is what it can
+   then take responsibility for. */
+.notes {
+  --notes-lines: 4;
+  --notes-line-height: 1.45;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  line-height: var(--notes-line-height);
+}
+
+.notes__list {
+  margin: 0;
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+
+.notes__item {
+  overflow-wrap: anywhere;
+}
+
+/* Two notes or four lines, whichever is shorter — so both limits are here, and
+   the one that bites first is the one that shows. Scoped to `.has-js`: without
+   the script there is no toggle to put the rest back, so nothing may be hidden. */
+.has-js [data-notes-collapsed] .notes__item:nth-child(n + 3) {
+  display: none;
+}
+
+.has-js [data-notes-collapsed] .notes__list {
+  max-height: calc(var(--notes-lines) * var(--notes-line-height) * 1em);
+  overflow: hidden;
+}
+
+/* The summary card's two controls: the notes toggle, and the one that opens the
+   description block below the steps. Both ship `hidden` and wait for the
+   script; Tailwind's preflight makes that attribute win over anything here. */
+.card__toggle {
+  margin-top: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted-fg);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* The job description: the row's third block, filling the line it wrapped onto.
+   Closed by default, because 1870 characters open under every row is a page
+   nobody can scan (§4.8). */
+.opportunity__description {
+  flex: 0 0 100%;
+  padding: var(--card-padding);
+  border: 1px solid var(--rule);
+  border-radius: var(--card-radius);
+  background: var(--summary-bg);
+  font-size: 0.85rem;
+}
+
+.description__summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Once the script runs, the summary card's control is the way in, so a closed
+   block is a bar that says what the card already says. Both rules are scoped to
+   `.has-js`: without it that control never appears and this bar is all there
+   is. */
+.has-js .opportunity__description:not([open]) {
+  display: none;
+}
+
+.has-js .description__summary {
+  display: none;
+}
+
+/* Columns, because the block is as wide as the board and one measure that wide
+   is unreadable. `columns` takes a width, so the count follows the viewport and
+   no breakpoint has to guess it. */
+.description__body {
+  columns: 22rem;
+  column-gap: 1.5rem;
+  margin-top: 0.5rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* A phone is too narrow for a summary beside its steps, so the row stacks: the
-   summary spans the viewport, the steps sit underneath it. */
+   summary spans the viewport, the steps sit underneath it, and the description
+   is one cell under those. */
 @media (max-width: 30rem) {
   body {
     padding: 0.75rem 0.5rem;
   }
 
+  /* `nowrap`, because the wrap that puts the description on its own line at
+     laptop width would wrap this into a second column instead: the main axis is
+     vertical here, so `flex: 0 0 100%` is a height, and the overflow goes
+     sideways on the one screen that must never scroll that way. */
   .opportunity {
     flex-direction: column;
+    flex-wrap: nowrap;
     gap: 0.35rem;
+    padding: 0.35rem;
+  }
+
+  /* Same reasoning: the column stretches it across anyway, so it needs no basis. */
+  .opportunity__description {
+    flex: 0 0 auto;
   }
 
   .card--summary {
@@ -269,5 +397,25 @@ body {
   .has-js .opportunity__track {
     gap: 0;
     overflow-x: hidden;
+  }
+
+  /* Two columns at this width is two columns an inch wide, so the ad stays one
+     cell and opens downwards instead. */
+  .description__body {
+    columns: 1;
+  }
+
+  /* The block keeps its own bar here. The summary card is itself collapsed to
+     two lines on a phone, so a control inside it would be a tap out of reach. */
+  .has-js .opportunity__description:not([open]) {
+    display: block;
+  }
+
+  .has-js .description__summary {
+    display: list-item;
+  }
+
+  .card__toggle {
+    display: none;
   }
 }

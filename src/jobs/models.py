@@ -9,8 +9,10 @@ from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
+from django.utils.text import Truncator
 
-from jobs.ordering import sort_opportunities, sort_steps
+from jobs.ordering import sort_notes, sort_opportunities, sort_steps
 
 if TYPE_CHECKING:
     from django.db.models.manager import RelatedManager
@@ -156,7 +158,9 @@ class OpportunityQuerySet(models.QuerySet["Opportunity"]):
         what keep the sort, and the summary card that follows it, from costing a
         query per row.
         """
-        rows = self.select_related("company", "source", "contact").prefetch_related("steps__state")
+        rows = self.select_related("company", "source", "contact").prefetch_related(
+            "steps__state", "notes"
+        )
         return sort_opportunities(rows)
 
     def in_archive_order(self) -> "OpportunityQuerySet":
@@ -173,6 +177,7 @@ class Opportunity(models.Model):
 
     if TYPE_CHECKING:
         steps: "RelatedManager[Step]"
+        notes: "RelatedManager[Note]"
 
     company = models.ForeignKey(Company, related_name="opportunities", on_delete=models.PROTECT)
     title = models.CharField(max_length=200)  # free text, see §6.8
@@ -181,7 +186,9 @@ class Opportunity(models.Model):
     contact = models.ForeignKey(
         Contact, null=True, blank=True, related_name="opportunities", on_delete=models.SET_NULL
     )
-    comments = models.TextField(blank=True, default="")
+    # The pasted job ad — 1870 characters in the sample export (§4.8). Notes about
+    # the application are `Note` rows, not prose in here.
+    job_description = models.TextField(blank=True, default="")
     archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -207,6 +214,16 @@ class Opportunity(models.Model):
         """
         return sort_steps(self.steps.all())
 
+    @property
+    def ordered_notes(self) -> "list[Note]":
+        """This opportunity's notes newest first, so the board template need not sort.
+
+        Reads the rows `in_board_order` prefetched, for the same reason
+        `ordered_steps` does. Ordering is a rule, and rules do not belong in a
+        template (§6.3).
+        """
+        return sort_notes(self.notes.all())
+
 
 class Step(models.Model):
     """Something that happened on an opportunity, in one state."""
@@ -223,3 +240,23 @@ class Step(models.Model):
     def __str__(self) -> str:
         """Name the step by its state and date."""
         return f"{self.state} on {self.date.isoformat()}"
+
+
+class Note(models.Model):
+    """A remark written on an opportunity — "not sure about this", and why.
+
+    A row rather than a line of prose, so each one can be dated, read newest
+    first, and removed on its own. The job ad it sits beside is
+    `Opportunity.job_description`; the two are different kinds of text and no
+    longer share a field.
+    """
+
+    opportunity = models.ForeignKey(Opportunity, related_name="notes", on_delete=models.CASCADE)
+    body = models.TextField()
+    # `default` rather than `auto_now_add`: the latter makes the field unwritable,
+    # and the demo seed dates its notes by hand so a re-run cannot reorder them.
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self) -> str:
+        """Name the note by its opening words — a label, not the whole note."""
+        return Truncator(self.body).chars(60)
