@@ -1,0 +1,273 @@
+/* The board's layout contract — plan 001 §7.
+
+   On a laptop: a fixed summary block, and a steps block whose track scrolls, so
+   a long-running opportunity does not drag the whole page sideways. On a phone
+   the row stacks, the summary spans it and collapses to two lines, and the
+   steps become one card at a time with an arrow either side.
+
+   `.has-js` marks what the script can take responsibility for. Rules outside it
+   have to leave the board usable on their own. Nothing here knows what a state
+   looks like; that is states.css. */
+
+:root {
+  --board-gap: 0.5rem;
+  --summary-width: 18rem;
+  --step-width: 16rem;
+  --card-radius: 0.5rem;
+  --card-padding: 0.75rem;
+  --rule: #d4d4d4;
+  --page-bg: #fafafa;
+  --page-fg: #1a1a1a;
+  --muted-fg: #525252;
+  --summary-bg: #ffffff;
+}
+
+body {
+  margin: 0;
+  padding: 1rem;
+  background: var(--page-bg);
+  color: var(--page-fg);
+  font: 400 0.95rem/1.45 ui-sans-serif, system-ui, sans-serif;
+}
+
+.board__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.board__title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.board__counts,
+.board__empty {
+  margin: 0;
+  color: var(--muted-fg);
+  font-size: 0.85rem;
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--board-gap);
+}
+
+/* Two blocks. The row itself never scrolls — if it did, the scrollbar would run
+   under the summary card as well as the steps, which is what gave the game away. */
+.opportunity {
+  display: flex;
+  gap: var(--board-gap);
+  align-items: stretch;
+}
+
+/* The steps region: a track, with room for an arrow either side of it. */
+/* Stretch, not centre: the row makes its two blocks the same height, this
+   makes the track fill the block, and the track makes the cards fill it. Centre
+   anywhere along that chain and the steps shrinkwrap to their own content,
+   ending short of a summary that has more to say. */
+.opportunity__steps {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: var(--board-gap);
+}
+
+/* The scroller. `min-width: 0` because a flex item defaults to `min-width: auto`,
+   which would size this to its steps and push the whole row wide instead.
+
+   The scrollbar is hidden rather than the scrolling: the arrows replace the
+   bar, not the wheel, the trackpad or the keyboard. */
+.opportunity__track {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: var(--board-gap);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.opportunity__track::-webkit-scrollbar {
+  display: none;
+}
+
+/* Shown only once the script that moves the track is running; `hidden` in the
+   markup covers the no-script case, and the script takes it off and puts it
+   back as the track reaches each end. */
+.steps__arrow {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  align-self: stretch;
+  border: 1px solid var(--rule);
+  border-radius: var(--card-radius);
+  background: var(--summary-bg);
+  color: var(--page-fg);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.has-js .steps__arrow {
+  display: flex;
+}
+
+.steps__arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.card {
+  flex: none;
+  padding: var(--card-padding);
+  border: 1px solid var(--rule);
+  border-radius: var(--card-radius);
+}
+
+/* Holds its place by being the row's other block, not by `position: sticky`:
+   there is nothing moving underneath it to pin against any more. */
+.card--summary {
+  flex: 0 0 var(--summary-width);
+  background: var(--summary-bg);
+  border-right-width: 2px;
+}
+
+.card--step {
+  flex: 0 0 var(--step-width);
+}
+
+.card__heading {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/* A button, because it toggles the card rather than going anywhere. Preflight
+   has already stripped its chrome; what is left is making it read as the card's
+   own two lines. */
+.card__head {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.card__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.card__subtitle {
+  margin: 0.15rem 0 0.5rem;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.card__facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.1rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.card__facts dt {
+  font-weight: 600;
+}
+
+.card__facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The pasted job ad is 1870 characters in the sample export (§4.8), so it is
+   collapsed by default and an 18rem card keeps its shape either way. */
+.card__notes {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.card__notes summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.card__notes p {
+  margin: 0.35rem 0 0;
+  max-height: 14rem;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A phone is too narrow for a summary beside its steps, so the row stacks: the
+   summary spans the viewport, the steps sit underneath it. */
+@media (max-width: 30rem) {
+  body {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .opportunity {
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .card--summary {
+    flex: 0 0 auto;
+    width: 100%;
+    border-right-width: 1px;
+  }
+
+  /* Collapsed to the two lines that identify the row; the rest is a tap away. */
+  .card--summary[data-collapsed] .card__body {
+    display: none;
+  }
+
+  .card--summary[data-collapsed] .card__subtitle {
+    margin-bottom: 0;
+  }
+
+  .has-js .card__head {
+    padding-right: 1.5rem;
+  }
+
+  .has-js .card__head::after {
+    content: "\2304";
+    position: absolute;
+    top: var(--card-padding);
+    right: var(--card-padding);
+    font-size: 1rem;
+    line-height: 1;
+    transition: transform 0.15s ease;
+  }
+
+  .has-js .card--summary {
+    position: relative;
+  }
+
+  .has-js .card--summary[data-collapsed] .card__head::after {
+    transform: rotate(-90deg);
+  }
+
+  /* One card fills the track, so the next is an arrow away rather than a peek. */
+  .card--step {
+    flex: 0 0 100%;
+  }
+
+  /* The arrows replace the swipe, so the track stops scrolling on its own —
+     but only once the script that moves it is actually running. */
+  .has-js .opportunity__track {
+    gap: 0;
+    overflow-x: hidden;
+  }
+}

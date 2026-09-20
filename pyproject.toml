@@ -20,7 +20,8 @@ dependencies = [
   "pytest>=9.1.1",
   "pytest-cov>=4.1.0",
   "pytest-django>=4.14.0",
-  "ruff>=0.16.8"
+  "ruff>=0.16.8",
+  "whitenoise>=6.11.0"
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -60,6 +61,12 @@ pythonpath = [
 ]
 testpaths = [
   "tests"
+]
+filterwarnings = [
+  # WhiteNoise serves from STATIC_ROOT, which collectstatic creates on deploy.
+  # pytest-django runs with DEBUG off, so WhiteNoise looks for the directory and
+  # says so; the suite renders pages, it never serves their static files.
+  "ignore:No directory at:UserWarning"
 ]
 addopts = [
   "--cov=src/",

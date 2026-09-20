@@ -1,0 +1,22 @@
+{# A row is two blocks: the summary, and the steps. On a phone they stack (§7). #}
+<section class="opportunity" id="opportunity-{{ opportunity.pk }}">
+  {% include "jobs/_summary_card.html" %}
+
+  {# Arrows either side of the track, not inside it, so they stay put as it moves. #}
+  {# The script hides them where they are no use. #}
+  <div class="opportunity__steps" data-steps>
+    <button class="steps__arrow" type="button" data-steps-prev aria-label="Newer step" hidden>
+      <span aria-hidden="true">&lsaquo;</span>
+    </button>
+
+    <div class="opportunity__track" data-steps-track>
+      {% for step in opportunity.ordered_steps %}
+        {% include "jobs/_step_card.html" %}
+      {% endfor %}
+    </div>
+
+    <button class="steps__arrow" type="button" data-steps-next aria-label="Older step" hidden>
+      <span aria-hidden="true">&rsaquo;</span>
+    </button>
+  </div>
+</section>

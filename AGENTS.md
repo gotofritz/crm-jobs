@@ -209,12 +209,29 @@ reaches `models.py`, the design is wrong — see `docs/plans/001` §6.3.
 
 - HTMX is vendored in `static/`, never loaded from a CDN
 - Tailwind via the standalone CLI binary — no npm, no `package.json`
+- Paths in `assets/app.css` are relative to that file, not root-relative:
+  `@import "./board.css"`, `@source "../src/jobs/templates"`. The
+  root-relative import rule under Code Standards is about Python. A
+  root-relative `@import` fails the build; a root-relative `@source`
+  builds and silently scans nothing
+- `static/css/app.css` is committed, so every task that writes it
+  passes `--minify` — `poe css` and the watch in `poe serve` alike
 - No colour, size or spacing in Python. Models, views and templates
   carry identity (`data-state`, `data-group`); CSS decides appearance
 - State palette lives in one stylesheet, with a `data-group` fallback so
   an unstyled state still renders
-- Layout contract: summary card sticky at `left: 0`, steps newest-first
-  to its right, each opportunity row scrolls horizontally on its own
+- Layout contract: an opportunity row is two blocks — a fixed-width
+  summary, and a steps block holding the steps newest-first. The steps
+  block holds a track, and the track is the scroller, not the row
+- The track's scrollbar is hidden, not its scrolling: an arrow either
+  side moves it a card at a time, and the wheel, trackpad and keyboard
+  still work. An arrow shows only while it has somewhere to go
+- On a phone the row stacks: the summary spans the viewport and
+  collapses to its title and company, and the steps become one card at
+  a time with an arrow either side, so nothing scrolls sideways
+- One hand-written script, `static/js/board.js`, vendored and deferred.
+  Everything in it is an enhancement: without it every summary is open
+  and the steps scroll. `.has-js` scopes the rules that depend on it
 
 ## Data & Secrets
 

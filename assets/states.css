@@ -1,0 +1,32 @@
+/* The only file in the project that knows what a state looks like — plan 001 §6.3.
+   The palette itself, with its measured contrast ratios, is §6.4; the values here
+   are the source of truth and tests/jobs/test_palette.py reads them back. */
+
+.card--step {
+  background: var(--state-bg);
+  color: var(--state-fg);
+}
+
+/* Group fallback: a state added as data, with no rule of its own, still renders. */
+[data-group="attention"] { --state-bg: #b3261e; --state-fg: #ffffff; }
+[data-group="due"]       { --state-bg: #ffd54f; --state-fg: #1a1a1a; }
+[data-group="complete"]  { --state-bg: #f5f5f5; --state-fg: #1a1a1a; }
+
+/* Per-state, later in the cascade so it wins at equal specificity. */
+[data-state="error"]        { --state-bg: #b3261e; --state-fg: #ffffff; }
+[data-state="overdue"]      { --state-bg: #e8710a; --state-fg: #1a1a1a; }
+[data-state="due"]          { --state-bg: #ffd54f; --state-fg: #1a1a1a; }
+[data-state="tentative"]    { --state-bg: #fff3cd; --state-fg: #1a1a1a; }
+[data-state="accepted"]     { --state-bg: #1b5e20; --state-fg: #ffffff; }
+[data-state="success"]      { --state-bg: #a5d6a7; --state-fg: #1a1a1a; }
+[data-state="going-well"]   { --state-bg: #c8e6c9; --state-fg: #1a1a1a; }
+[data-state="unremarkable"] { --state-bg: #f5f5f5; --state-fg: #1a1a1a; }
+[data-state="bad-feeling"]  { --state-bg: #e28fae; --state-fg: #1a1a1a; }
+
+/* GHOSTED is the state you scan for, and the pale end of COMPLETE is close in
+   lightness, so it gets a second channel on top of its colour (§6.4). */
+[data-state="ghosted"]      { --state-bg: #e0e0e0; --state-fg: #424242;
+                              border-style: dashed; }
+
+[data-state="fail"]         { --state-bg: #d7ccc8; --state-fg: #4e342e; }
+[data-state="blacklist"]    { --state-bg: #37474f; --state-fg: #ffffff; }

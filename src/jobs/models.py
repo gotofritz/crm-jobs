@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, ClassVar
 from django.db import models
 from django.db.models import Q
 
-from jobs.ordering import sort_opportunities
+from jobs.ordering import sort_opportunities, sort_steps
 
 if TYPE_CHECKING:
     from django.db.models.manager import RelatedManager
@@ -125,14 +125,16 @@ class Source(models.Model):
 class State(models.Model):
     """What a step means. The vocabulary is data; its colours are not (§6.10)."""
 
-    slug = models.SlugField(unique=True)  # "bad-feeling" — the CSS hook
-    name = models.CharField(max_length=50)  # "BAD_FEELING" — what is displayed
+    slug = models.SlugField(unique=True)  # "bad-feeling" — the key, and the CSS hook
+    # "Bad Feeling" — what a card prints. Empty means there is nothing worth
+    # printing, which is how UNREMARKABLE renders as a bare card (§6.6).
+    name = models.CharField(max_length=50, blank=True, default="")
     group = models.CharField(max_length=20, choices=Group.choices)
     sort_order = models.PositiveIntegerField()  # the third tie-break in §4.5
 
     def __str__(self) -> str:
-        """Name the state."""
-        return self.name
+        """Name the state, falling back to the slug for the ones with no name."""
+        return self.name or self.slug
 
 
 class OpportunityQuerySet(models.QuerySet["Opportunity"]):
@@ -150,10 +152,11 @@ class OpportunityQuerySet(models.QuerySet["Opportunity"]):
         """Board order (§4.5).
 
         A list, not a queryset: the date tie-break inverts on the state's group,
-        which SQL cannot express in one ORDER BY. The prefetch is what keeps the
-        sort from costing a query per row.
+        which SQL cannot express in one ORDER BY. The joins and the prefetch are
+        what keep the sort, and the summary card that follows it, from costing a
+        query per row.
         """
-        rows = self.select_related("company").prefetch_related("steps__state")
+        rows = self.select_related("company", "source", "contact").prefetch_related("steps__state")
         return sort_opportunities(rows)
 
     def in_archive_order(self) -> "OpportunityQuerySet":
@@ -194,6 +197,16 @@ class Opportunity(models.Model):
         """Name the opportunity by its title and company."""
         return f"{self.title} at {self.company.name}"
 
+    @property
+    def ordered_steps(self) -> "list[Step]":
+        """This opportunity's steps in §4.5 order, so the board template need not sort.
+
+        Reads the prefetched rows `in_board_order` loaded, so the board costs no
+        query per row. Ordering is a rule, and rules do not belong in a template
+        (§6.3).
+        """
+        return sort_steps(self.steps.all())
+
 
 class Step(models.Model):
     """Something that happened on an opportunity, in one state."""
@@ -209,4 +222,4 @@ class Step(models.Model):
 
     def __str__(self) -> str:
         """Name the step by its state and date."""
-        return f"{self.state.name} on {self.date.isoformat()}"
+        return f"{self.state} on {self.date.isoformat()}"

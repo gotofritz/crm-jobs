@@ -39,15 +39,54 @@ rather than on the first signed cookie.
 | `DJANGO_ALLOWED_HOSTS` | empty | comma separated |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | empty | comma separated, with scheme |
 | `DJANGO_HSTS_SECONDS` | `31536000` (one year) | ignored while `DEBUG` is on |
-| `DJANGO_DB_PATH` | `./db.sqlite3` | `/var/lib/crm-jobs/db.sqlite3` on the VPS |
+| `DJANGO_DB_PATH` | `./db.sqlite3` | `/var/lib/crm-jobs/db.sqlite3` on the VPS; `poe demo` pins it to `./demo.sqlite3` |
 
 Secure cookies and HSTS follow `DEBUG`, so production is one switch rather than
 six. `uv run poe qa` ends with `check-deploy`, which runs Django's deployment
 checklist against production-shaped settings at `--fail-level WARNING`. CI runs
 `poe qa`, so the checklist cannot go quietly red.
 
-What is still outstanding from plan 001 phase 5 is WhiteNoise and
-`collectstatic`; they wait for phase 3, when there are static files to serve.
+### Static files
+
+There is no Node and no `package.json`. Tailwind is the standalone CLI binary,
+which `uv run poe tailwind-install` fetches into `.tailwind/` at a pinned
+version; `uv run poe dev` fetches it if it is missing and then runs it in watch
+mode beside `runserver`.
+
+```
+assets/            app.css (Tailwind input), board.css, states.css — the source
+static/css/app.css the compiled stylesheet, committed, and what is served
+static/js/board.js the one hand-written script, served as written
+staticfiles/       what collectstatic writes on deploy; not in the repository
+```
+
+Paths inside `assets/app.css` are relative to that file — `@import "./board.css"`,
+`@source "../src/jobs/templates"` — not root-relative. The root-relative import
+rule in AGENTS.md is about Python, and CSS has no notion of a project root: a
+root-relative `@import` fails the build outright (`Can't resolve
+'/assets/board.css'`), and a root-relative `@source` is worse, because it builds
+without complaint and scans nothing, so a utility used in a template would
+quietly never reach the stylesheet. A test pins both forms.
+
+Every task that writes the compiled file passes `--minify`, `poe css` and the
+watch inside `poe serve` alike. They disagreed for a while, so whichever ran
+last decided whether the committed artifact was one line or four hundred, and
+every diff carried the difference. A test now fails if it arrives unminified.
+
+The compiled file is committed so that neither CI nor the deploy needs the
+binary — deploy still touches code only. That makes it possible for it to go
+stale, so a test compares the palette in `assets/states.css` with the palette in
+`static/css/app.css`: editing a colour without running `uv run poe css` fails
+the suite rather than the board.
+
+WhiteNoise serves `STATIC_ROOT`, directly after `SecurityMiddleware`, so Caddy
+needs no static-file configuration. The storage backend is
+`CompressedStaticFilesStorage` rather than the manifest variant: hashed
+filenames would make every rendered `{% static %}` tag depend on `collectstatic`
+having run first, which means the test suite and any `DEBUG=False` run would
+need a build step before they could render a page. One page behind `basic_auth`
+gains little from far-future caching; the gzip and brotli copies are the part
+worth having.
 
 ### Architecture
 
@@ -72,6 +111,7 @@ Code lives under `src/`, which is on the path via `pythonpath` in
 src/config/       settings, environment readers, urls, wsgi
 src/jobs/         the one app: models, ordering, admin, views, templates
 tests/            mirrors src/, one directory per package
+assets/           hand-written css and the tailwind input, compiled from here
 static/           vendored htmx, compiled tailwind css
 deploy/           Caddyfile, systemd units, backup timer
 docs/             plans, archive, this file
@@ -104,9 +144,12 @@ Seven tables plus one `TextChoices` enum, described in full in plan 001 §6:
   no manager filters archived rows away silently.
 - `Step` — something that happened, in one `State`.
 - `State` — the vocabulary (`slug`, `name`, `group`, `sort_order`), extensible
-  as data. `Group` stays an enum rather than a table, because code branches on
-  the three buckets. Where they rank is a sort rule, so `GROUP_RANK` lives in
-  `ordering.py` rather than beside the enum.
+  as data. `slug` is the key: it is what the code looks up and what the
+  stylesheet hooks on, which leaves `name` free to be the words printed on a
+  card. `UNREMARKABLE`'s name is empty, so its card carries the step and no
+  label (plan 001 §6.1). `Group` stays an enum rather than a table, because code
+  branches on the three buckets. Where they rank is a sort rule, so `GROUP_RANK`
+  lives in `ordering.py` rather than beside the enum.
 
 Deletion rules are deliberate: `Opportunity.company` and `Step.state` are
 `PROTECT`, `source` and `contact` are `SET_NULL`, `Step.opportunity` and
@@ -115,6 +158,32 @@ Deletion rules are deliberate: `Opportunity.company` and `Step.state` are
 Every model is registered in the Django admin. That is the CRUD backdoor while
 the real UI is built, the place duplicate contacts and companies get merged,
 and — until search exists — the only way to look at archived opportunities.
+
+### Demo data
+
+`migrate` seeds picklists and nothing else. Opportunities are the user's data, so
+they are never written behind their back. `src/jobs/demo.py` holds a board worth
+looking at — every group represented, one row with no steps, one archived, three
+with a comment long enough to need collapsing.
+
+```bash
+uv run poe demo   # rebuild demo.sqlite3 from scratch and serve it
+uv run poe dev    # db.sqlite3, your own rows, untouched
+```
+
+Two databases, and `poe demo` owns one of them outright: it deletes
+`demo.sqlite3`, migrates it, seeds it and runs the server against it, so it is a
+reset rather than an accumulation and nothing needs undoing. `DJANGO_DB_PATH` is
+pinned for that task rather than defaulted, because a task that deletes a file by
+name must not be pointed somewhere else. `manage.py seed_demo` also refuses to
+run with `DEBUG` off, so it cannot reach the VPS.
+
+`tests/conftest.py` exposes the same rows as the `demo_board` fixture, for tests
+that want a full board rather than the two rows they built themselves. That is
+not the same database, and it cannot be: Django runs SQLite tests against
+`file:memorydb_default?mode=memory&cache=shared`, which exists only inside the
+pytest process and only for the length of the run. `demo.sqlite3` is the
+file-backed equivalent for a browser to look at.
 
 ### Ordering
 
@@ -135,14 +204,114 @@ The functions take steps, not querysets, so every rule is tested without a
 database. `Opportunity.objects.live().in_board_order()` is the entry point. It
 returns a list rather than a queryset, because the date tie-break flips on the
 state's group and SQL cannot express that in one `ORDER BY`. It prefetches
-`steps__state`, so the sort costs three queries however many rows there are,
-and a test asserts that count. Archived rows have their own order,
+`steps__state` and joins the company, source and contact the summary card
+needs, so the sort costs three queries however many rows there are, and a test
+asserts that count. Archived rows have their own order,
 `in_archive_order()`, most recently archived first (plan 001 §6.5).
 
 Keeping `GROUP_RANK` here leaves `ordering.py` importing nothing from the
 models at runtime: the dependency runs one way, models → ordering. A test
 asserts the ranking covers every `Group`, so adding a group without deciding
 where it ranks fails loudly.
+
+### The board
+
+`GET /` is the whole application. It renders one row per live opportunity in
+`in_board_order()`, with the archived count in the header and nothing else about
+the archive — not seeing archived rows is the point of archiving (plan 001 §6.5).
+
+```
+---------------------------------------------------
+| SUMMARY | | STEP 3 | STEP 2 | STEP 1 |          |
+|         | |<------- scrolls ------------------->|
+---------------------------------------------------
+   ^ fixed        ^ newest first, oldest right
+```
+
+A row is two blocks. The summary is one and holds its place by being there; the
+steps sit in a block of their own, holding a track and an arrow either side of
+it. The track is the scroller, so a long-running opportunity does not drag the
+page sideways or its neighbours with it. Making the row itself scroll instead —
+which is what the first cut did — runs the scrollbar under the summary card too.
+`min-width: 0` on the track is load-bearing: a flex item defaults to
+`min-width: auto`, so without it the track sizes to its steps and pushes the row
+wide rather than scrolling. `tests/jobs/test_layout.py` asserts both against the
+stylesheet.
+
+A row is one height all the way across: it stretches its two blocks, the steps
+block stretches the track, and the track stretches the cards, so the summary and
+the steps end level however much more one of them has to say. Centring anywhere
+along that chain leaves the steps shrinkwrapped to their own content.
+
+What is hidden is the scrollbar, not the scrolling. A row with more steps than
+fit grows an arrow at each end of its track, which moves it a card at a time; a
+row whose steps already fit grows neither. The wheel, the trackpad and the
+keyboard still scroll it, and the arrows follow, because on a laptop they read
+the scroll position rather than a count of clicks — an index would go stale the
+moment the trackpad was used.
+
+The summary card holds the pasted job ad — 1870 characters in the sample export
+— behind a native `<details>`, which needs no JavaScript.
+
+On a phone the row stacks instead:
+
+```
+-------------------------------------
+| Staff Backend Engineer          › |   <- tap to expand downwards
+| Northwind Analytics               |
+-------------------------------------
+| ‹ |   STEP 2 (one at a time)  | › |
+-------------------------------------
+```
+
+The summary spans the viewport and collapses to the two lines that identify the
+row; the steps become one card at a time with an arrow either side, and the
+track stops scrolling so nothing is swiped sideways or left half visible.
+
+The arrows behave differently at the two widths, for a reason worth keeping. A
+laptop card is a fixed width, so an arrow can leave without moving anything: it
+shows only while it has somewhere to go. A phone card is the width of the track,
+so hiding an arrow would resize the card under the reader's thumb — there the
+ends grey out instead, and only a row with nothing to page through loses them.
+
+Templates live in `src/jobs/templates/jobs/`, partials prefixed `_`:
+`board.html` includes `_opportunity_row.html`, which is the summary card and a
+`.opportunity__steps` block holding the arrows and a `.opportunity__track` with
+one `_step_card.html` per step. The track is there whether or not it has steps
+in it yet, because phase 4 swaps into it.
+
+### The one script
+
+`static/js/board.js` is the only hand-written JavaScript in the project: about
+eighty lines, vendored, deferred, no build step and no npm. It collapses the
+summaries and drives the step arrows, both of which need state that CSS cannot
+hold on its own.
+
+Everything in it is an enhancement. The markup ships with every summary expanded
+(`aria-expanded="true"`, no `data-collapsed`) and the track scrollable, and the
+phone rules that take the scrolling away are scoped to `.has-js`, a class the
+script adds to `<html>`. A browser that never runs it gets the laptop board at
+phone width, which is usable rather than broken.
+
+It is wired by one delegated `click` listener on the document rather than per
+element, so rows HTMX swaps in during phase 4 are live without re-running
+anything. There is no JavaScript test runner and no npm to add one, so
+`tests/jobs/test_progressive_enhancement.py` checks the contract instead: it
+reads the script, collects every `[data-…]` hook it selects on, and fails if one
+is missing from the rendered board. Renaming a hook in one file and not the
+other is otherwise silent. Step cards carry `data-state` and
+`data-group` and nothing else about appearance; `assets/states.css` is the only
+file that decides what those mean.
+
+Ordering does not happen in the template. `Opportunity.ordered_steps` reads the
+rows `in_board_order()` already prefetched and hands them over sorted, so the
+whole board costs four queries — opportunities, steps, states, and the archived
+count — however many rows it has, and a test asserts that.
+
+The palette itself is checked rather than trusted: `tests/jobs/test_palette.py`
+reads the stylesheet, measures every pair against WCAG AA for body text, and
+asserts each ratio matches the one plan 001 §6.4 publishes. A separate test
+fails if a hex value appears in any `.py` or `.html` file under `src/`.
 
 ### Boundaries
 
@@ -162,7 +331,9 @@ has no colour field, and a test asserts it stays that way — if a hex value
 reaches `models.py`, the design is wrong (plan 001 §6.3).
 
 `forms.py` arrives in phase 4; the rows above are the contract it is written
-against.
+against. Templates carry semantic class names and data attributes only — never
+Tailwind utilities, because a utility class in a template is spacing and colour
+in a template.
 
 ### Deviations from AGENTS.md
 

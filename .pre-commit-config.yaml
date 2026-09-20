@@ -31,6 +31,9 @@ repos:
       - id: destroyed-symlinks
       - id: detect-private-key
       - id: end-of-file-fixer
+        # Tailwind's minified output has no trailing newline, and adding one
+        # would be undone by the next `poe css`.
+        exclude: ^static/css/app\.css$
       - id: fix-byte-order-marker
       - id: mixed-line-ending
       - id: trailing-whitespace

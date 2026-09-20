@@ -1,0 +1,26 @@
+{% load static %}<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Opportunities</title>
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    {# Vendored, deferred, no build step. The board is complete without it (§5, §7). #}
+    <script src="{% static 'js/board.js' %}" defer></script>
+  </head>
+  <body>
+    <header class="board__header">
+      <h1 class="board__title">Opportunities</h1>
+      {# Archived rows are not reachable from the board beyond this count (§6.5). #}
+      <p class="board__counts">{{ opportunities|length }} live, {{ archived_count }} archived</p>
+    </header>
+
+    <main class="board" id="board">
+      {% for opportunity in opportunities %}
+        {% include "jobs/_opportunity_row.html" %}
+      {% empty %}
+        <p class="board__empty">Nothing live.</p>
+      {% endfor %}
+    </main>
+  </body>
+</html>

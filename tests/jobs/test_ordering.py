@@ -234,7 +234,7 @@ def test_in_board_order_loads_steps_and_states_up_front(
     with django_assert_num_queries(3):
         assert [
             row.steps.all()[0].state.name for row in Opportunity.objects.live().in_board_order()
-        ] == ["DUE", "DUE", "DUE"]
+        ] == ["Due", "Due", "Due"]
 
 
 def test_in_archive_order_is_most_recently_archived_first(company: Company) -> None:

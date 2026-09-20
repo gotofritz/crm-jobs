@@ -60,13 +60,20 @@ uv run python manage.py migrate
 uv run python manage.py runserver
 ```
 
+The compiled stylesheet is committed, so nothing needs building to run the app.
+Editing anything in `assets/` does need a rebuild: `uv run poe css`, or
+`uv run poe dev`, which watches. Either fetches the pinned Tailwind standalone
+binary into `.tailwind/` the first time — no Node, no npm.
+
 Visit `http://localhost:8000`
 
 ### Running Tests & Checks
 
 ```bash
-uv run poe dev       # sync, migrate, then runserver with auto-reload
+uv run poe dev       # sync, migrate, then runserver with Tailwind watching
 uv run poe migrate   # apply migrations, seeding states, sources and sectors
+uv run poe css       # recompile static/css/app.css from assets/
+uv run poe demo      # rebuild demo.sqlite3 with demo rows and serve it
 uv run poe test      # pytest
 uv run poe qa        # all checks (lint, type, test, deployment checklist)
 uv run poe check-deploy  # Django's deployment checklist on production settings

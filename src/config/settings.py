@@ -67,6 +67,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Directly after SecurityMiddleware, so a static file is answered before any
+    # of the session, auth and CSRF work that serving one does not need.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -149,7 +152,24 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
+# `static/` holds what is served: the stylesheet Tailwind compiles from
+# `assets/`, and later the vendored HTMX. `staticfiles/` is what collectstatic
+# writes, and is not in the repository.
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR.parent / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR.parent / "static"]
+
+# WhiteNoise serves them, so Caddy needs no static-file configuration at all.
+#
+# Compressed rather than CompressedManifest: hashed filenames would make every
+# rendered `{% static %}` tag depend on collectstatic having run first, which
+# means the test suite and any DEBUG-off run need a build step before they can
+# render a page. The app is one page behind basic_auth, so far-future caching
+# buys little; the gzip and brotli copies are the part worth having.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
 
 
 # Email

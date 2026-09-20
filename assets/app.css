@@ -1,0 +1,16 @@
+/* Tailwind input — compiled to static/css/app.css by `uv run poe css`.
+
+   Tailwind supplies the reset and the build; the two layers below are the
+   project's own CSS. Templates carry semantic class names and data attributes
+   only, never utilities, because appearance is not allowed in a template
+   (plan 001 §6.3). */
+
+/* `source(none)` turns off automatic content detection, which otherwise scans
+   the project while the dev server is writing to it and rebuilds for changes
+   that cannot affect the output. The templates are the only place a class name
+   can appear. */
+@import "tailwindcss" source(none);
+@source "../src/jobs/templates";
+
+@import "./board.css";
+@import "./states.css";

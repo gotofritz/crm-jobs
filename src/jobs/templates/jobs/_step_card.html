@@ -1,0 +1,24 @@
+{# Identity only. What `data-state` and `data-group` look like is CSS's business (§6.3). #}
+<article class="card card--step"
+         data-state="{{ step.state.slug }}"
+         data-group="{{ step.state.group|lower }}">
+  <h3 class="card__title">{{ step.title }}</h3>
+  {# Printed, not just coloured: colour is never the only channel (§6.4). #}
+  {# A state with nothing to print — UNREMARKABLE — leaves no empty element. #}
+  {% if step.state.name %}<p class="card__subtitle">{{ step.state.name }}</p>{% endif %}
+
+  <dl class="card__facts">
+    <dt>When</dt>
+    <dd>
+      <time datetime="{{ step.date|date:'Y-m-d' }}">{{ step.date|date:'j M Y' }}</time>
+      {% if step.time %}{{ step.time|time:'H:i' }}{% endif %}
+    </dd>
+  </dl>
+
+  {% if step.comments %}
+    <details class="card__notes">
+      <summary>Notes</summary>
+      <p>{{ step.comments }}</p>
+    </details>
+  {% endif %}
+</article>
