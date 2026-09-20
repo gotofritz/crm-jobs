@@ -11,6 +11,7 @@ neither is reported rather than guessed at (§4.2).
 
 import csv
 import datetime as dt
+from collections.abc import Mapping
 from dataclasses import dataclass
 from io import StringIO
 
@@ -296,3 +297,45 @@ def parse_sheet(text: str) -> Parsed:
             rows.append(row)
 
     return Parsed(rows=tuple(rows), problems=tuple(problems))
+
+
+# Where a step lands when its title says nothing about how things went. It means
+# "nothing notable happened", which is the honest answer to a title that does not
+# say (§6). The same slug `Opportunity.add_first_step` uses.
+DEFAULT_STATE = "unremarkable"
+
+# §6. Ordered, and matched as substrings, so a longer phrase sits above a shorter
+# one it contains. Nothing here names `due`, `tentative`, `overdue` or `error`:
+# those mean something is scheduled or wrong *now*, which is a fact about the
+# present, and no title from a past step can establish it.
+STATE_HINTS: tuple[tuple[str, str], ...] = (
+    ("offer accepted", "accepted"),
+    ("accepted", "accepted"),
+    ("offer", "success"),
+    ("rejected", "fail"),
+    ("declined", "fail"),
+    ("unsuccessful", "fail"),
+    ("no thanks", "fail"),
+    ("withdrew", "fail"),
+    ("withdrawn", "fail"),
+    ("ghosted", "ghosted"),
+    ("no reply", "ghosted"),
+    ("no response", "ghosted"),
+    ("blacklist", "blacklist"),
+)
+
+
+def state_for(title: str, *, named: Mapping[str, str]) -> str:
+    """Guess which state a step was in from what its title says (§6).
+
+    A CSV export cannot carry the state at all — it was the cell's background
+    colour — so this is a guess and the importer reports every one of them.
+
+    `named` maps each seeded state's printed name, lowercased, to its slug. A
+    title that *is* one of those names is a restatement rather than a guess, so
+    it is tried first and matched whole: `Due diligence call` is not `Due`.
+    """
+    wording = " ".join(title.split()).lower()
+    if wording in named:
+        return named[wording]
+    return next((slug for hint, slug in STATE_HINTS if hint in wording), DEFAULT_STATE)

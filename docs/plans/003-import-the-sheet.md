@@ -262,9 +262,12 @@ One ordered table, matched case-insensitively against the step title,
 first hit wins. Longer, more specific phrases sit above shorter ones so
 `offer accepted` cannot be swallowed by `offer`.
 
+The first row is matched against the *whole* title and the rest as
+substrings, which is what keeps `Due diligence call` out of `Due`.
+
 | Looks for | Lands in |
 |-----------|----------|
-| the exact name of a seeded state (`Ghosted`, `Bad Feeling`, …) | that state |
+| a title that is exactly a seeded state's name (`Ghosted`, `Bad Feeling`, …) | that state |
 | `offer accepted`, `accepted` | `accepted` |
 | `offer` | `success` |
 | `rejected`, `declined`, `unsuccessful`, `no thanks` | `fail` |
@@ -273,10 +276,12 @@ first hit wins. Longer, more specific phrases sit above shorter ones so
 | `blacklist` | `blacklist` |
 | anything else | `unremarkable` |
 
-Deliberately absent: anything for `due`, `tentative`, `overdue` or
-`error`. Those mean something is scheduled or something is wrong *now*,
-which is a fact about the present, and no title text from a past step can
-establish it. A row that needs one gets it by being edited on the board.
+Deliberately absent from the substring rows: anything for `due`,
+`tentative`, `overdue` or `error`. Those mean something is scheduled or
+something is wrong *now*, which is a fact about the present, and no title
+text from a past step can establish it. A row that needs one gets it by
+being edited on the board. A title that is exactly `Due` still lands in
+`due`, because restating the state's own name is not an inference.
 
 The table is data in one module-level constant, so adding a phrase is a
 one-line change with a test beside it.

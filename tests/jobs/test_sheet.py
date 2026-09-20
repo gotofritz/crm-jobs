@@ -10,7 +10,10 @@ from pathlib import Path
 
 import pytest
 
+from jobs.models import State
 from jobs.sheet import (
+    DEFAULT_STATE,
+    STATE_HINTS,
     CellError,
     ParsedStep,
     is_state_header,
@@ -18,6 +21,7 @@ from jobs.sheet import (
     parse_head,
     parse_sheet,
     parse_step,
+    state_for,
 )
 
 
@@ -283,3 +287,66 @@ def test_one_bad_row_does_not_hide_the_next_one() -> None:
     )
 
     assert [(problem.row, problem.column) for problem in parsed.problems] == [(1, 1), (2, 2)]
+
+
+# What `state_for` is handed: the seeded states' printed names, lowercased,
+# against their slugs. Built from the database by the caller (§6).
+SEEDED = {
+    "accepted": "accepted",
+    "success": "success",
+    "bad feeling": "bad-feeling",
+    "going well": "going-well",
+    "ghosted": "ghosted",
+    "fail": "fail",
+    "blacklist": "blacklist",
+    "error": "error",
+    "overdue": "overdue",
+    "due": "due",
+    "tentative": "tentative",
+}
+
+
+def test_the_samples_newest_step_lands_in_fail() -> None:
+    """The one the whole inference argument rests on: the sample's title is `REJECTED`."""
+    assert state_for("REJECTED", named=SEEDED) == "fail"
+
+
+def test_an_accepted_offer_beats_a_bare_offer() -> None:
+    """The table is ordered, so the longer phrase has to be tried first (§6)."""
+    assert state_for("Offer accepted", named=SEEDED) == "accepted"
+    assert state_for("Offer received", named=SEEDED) == "success"
+
+
+def test_a_title_that_is_exactly_a_state_name_is_that_state() -> None:
+    """Writing the state's own name in the title is a restatement, not a guess."""
+    assert state_for("Bad Feeling", named=SEEDED) == "bad-feeling"
+
+
+def test_matching_ignores_case() -> None:
+    """The sheet shouted some titles and not others."""
+    assert state_for("ghosted", named=SEEDED) == state_for("GHOSTED", named=SEEDED) == "ghosted"
+
+
+def test_an_ordinary_step_title_stays_unremarkable() -> None:
+    """Most titles say what happened, not how it went, and that is the honest answer."""
+    assert state_for("Technical interview", named=SEEDED) == DEFAULT_STATE
+
+
+def test_a_title_merely_containing_a_state_name_is_not_that_state() -> None:
+    """`Due diligence call` is not `Due`. Only a whole-title match counts (§6)."""
+    assert state_for("Due diligence call", named=SEEDED) == DEFAULT_STATE
+
+
+def test_nothing_is_inferred_into_a_group_that_means_something_is_pending() -> None:
+    """§6: no past title can establish that something is scheduled or wrong now."""
+    inferred = {slug for _, slug in STATE_HINTS}
+
+    assert inferred.isdisjoint({"due", "tentative", "overdue", "error"})
+
+
+@pytest.mark.usefixtures("db")
+def test_every_slug_the_table_names_is_seeded() -> None:
+    """A renamed state must not leave the table pointing at nothing."""
+    seeded = set(State.objects.values_list("slug", flat=True))
+
+    assert {slug for _, slug in STATE_HINTS} | {DEFAULT_STATE} <= seeded
