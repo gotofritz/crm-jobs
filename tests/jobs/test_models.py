@@ -190,8 +190,10 @@ def test_models_are_readable_in_the_admin(
 
     assert str(opportunity.company) == "Acme"
     assert str(opportunity) == "Staff Software Engineer at Acme"
-    assert str(state) == "UNREMARKABLE"
-    assert str(step) == "UNREMARKABLE on 2026-01-05"
+    assert str(State.objects.get(slug="going-well")) == "Going Well"
+    # UNREMARKABLE prints nothing on a card (§6.6), so the slug has to name it here.
+    assert str(state) == "unremarkable"
+    assert str(step) == "unremarkable on 2026-01-05"
     assert str(sector) == "Robotics"
     assert str(source) == "Careers page"
     assert str(contact) == "Ada Lovelace"

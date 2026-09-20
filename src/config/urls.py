@@ -17,9 +17,10 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from jobs.views import healthz
+from jobs.views import board, healthz
 
 urlpatterns = [
+    path("", board, name="board"),
     path("healthz", healthz),
     path("admin/", admin.site.urls),
 ]

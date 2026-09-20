@@ -11,12 +11,35 @@ DJANGO_SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(64))"
 python manage.py check --deploy --fail-level WARNING
 '''
 
+[tool.poe.tasks.css]
+help = "Compile assets/app.css into static/css/app.css"
+sequence = [
+  "tailwind-install",
+  {cmd = ".tailwind/tailwindcss -i assets/app.css -o static/css/app.css --minify"}
+]
+
+[tool.poe.tasks.demo]
+help = "Rebuild demo.sqlite3 from scratch and serve it, leaving db.sqlite3 alone"
+sequence = [
+  "tailwind-install",
+  {shell = "rm -f demo.sqlite3 demo.sqlite3-wal demo.sqlite3-shm"},
+  "migrate",
+  {cmd = "python manage.py seed_demo"},
+  "serve"
+]
+
+[tool.poe.tasks.demo.env]
+# A plain value, not a default: the task deletes demo.sqlite3 by name, so it
+# must be the database it then writes to. `poe dev` keeps db.sqlite3.
+DJANGO_DB_PATH = "demo.sqlite3"
+
 [tool.poe.tasks.dev]
-help = "Sync, migrate, then run the development server"
+help = "Sync, migrate, then run the development server with Tailwind watching"
 sequence = [
   {cmd = "uv sync"},
+  "tailwind-install",
   "migrate",
-  {cmd = "python manage.py runserver"}
+  "serve"
 ]
 
 [tool.poe.tasks.lint]
@@ -51,9 +74,44 @@ sequence = [
   "check-deploy"
 ]
 
+[tool.poe.tasks.serve]
+help = "Run the development server with Tailwind rebuilding on change"
+shell = '''
+set -eu
+trap 'kill 0' EXIT
+# Same flags as `poe css`: static/css/app.css is committed, so a watch that
+# left it unminified would rewrite the file on every dev run.
+.tailwind/tailwindcss -i assets/app.css -o static/css/app.css --minify --watch=always &
+python manage.py runserver
+'''
+
 [tool.poe.tasks.superuser]
 help = "Create a Django admin superuser"
 cmd = "python manage.py createsuperuser"
+
+[tool.poe.tasks.tailwind-install]
+help = "Fetch the pinned Tailwind standalone CLI into .tailwind/ — no Node, no npm"
+shell = '''
+set -eu
+if [ -x .tailwind/tailwindcss ]; then
+  exit 0
+fi
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64)  asset=tailwindcss-linux-x64 ;;
+  Linux-aarch64) asset=tailwindcss-linux-arm64 ;;
+  Darwin-x86_64) asset=tailwindcss-macos-x64 ;;
+  Darwin-arm64)  asset=tailwindcss-macos-arm64 ;;
+  *) echo "no Tailwind standalone build for $(uname -s)-$(uname -m)" >&2; exit 1 ;;
+esac
+mkdir -p .tailwind
+curl -fsSL -o .tailwind/tailwindcss \
+  "https://github.com/tailwindlabs/tailwindcss/releases/download/v$TAILWIND_VERSION/$asset"
+chmod +x .tailwind/tailwindcss
+'''
+
+[tool.poe.tasks.tailwind-install.env]
+# Pinned, so a later release cannot quietly change what static/css/app.css is.
+TAILWIND_VERSION = "4.3.3"
 
 [tool.poe.tasks.typecheck]
 help = "Type-check the project"

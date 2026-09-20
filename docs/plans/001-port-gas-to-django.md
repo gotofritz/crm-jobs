@@ -386,7 +386,9 @@ browser ── HTTPS ──▶ Caddy (TLS + basic_auth) ──▶ gunicorn ─�
 - Django serves its own static files through WhiteNoise, so Caddy needs
   no static-file configuration.
 - HTMX vendored as a static file, not loaded from a CDN. No npm, no JS
-  build step.
+  build step. One hand-written script beside it, `static/js/board.js`,
+  for what CSS cannot do on its own — it is the file the browser runs,
+  and everything in it is an enhancement.
 - Tailwind via the standalone CLI binary, which needs no Node.
 
 Repo layout:
@@ -398,7 +400,7 @@ crm-jobs/
   manage.py
   config/                 settings, urls, wsgi
   jobs/                   the one app: models, views, templates
-  static/                 htmx.min.js, compiled tailwind css
+  static/                 htmx.min.js, board.js, compiled tailwind css
   deploy/                 Caddyfile, crm-jobs.service, backup timer
   .github/workflows/      ci.yml, deploy.yml
   clasp/                  kept read-only as reference until phase 7
@@ -526,18 +528,32 @@ that order and drives the tie-break in §4.5.
 
 | sort_order | group | name | slug |
 |---|---|---|---|
-| 1 | ATTENTION | ERROR | `error` |
-| 2 | ATTENTION | OVERDUE | `overdue` |
-| 3 | DUE | DUE | `due` |
-| 4 | DUE | TENTATIVE | `tentative` |
-| 5 | COMPLETE | ACCEPTED | `accepted` |
-| 6 | COMPLETE | SUCCESS | `success` |
-| 7 | COMPLETE | BAD_FEELING | `bad-feeling` |
-| 8 | COMPLETE | GOING_WELL | `going-well` |
-| 9 | COMPLETE | UNREMARKABLE | `unremarkable` |
-| 10 | COMPLETE | GHOSTED | `ghosted` |
-| 11 | COMPLETE | FAIL | `fail` |
-| 12 | COMPLETE | BLACKLIST | `blacklist` |
+| 1 | ATTENTION | Error | `error` |
+| 2 | ATTENTION | Overdue | `overdue` |
+| 3 | DUE | Due | `due` |
+| 4 | DUE | Tentative | `tentative` |
+| 5 | COMPLETE | Accepted | `accepted` |
+| 6 | COMPLETE | Success | `success` |
+| 7 | COMPLETE | Bad Feeling | `bad-feeling` |
+| 8 | COMPLETE | Going Well | `going-well` |
+| 9 | COMPLETE | *(empty)* | `unremarkable` |
+| 10 | COMPLETE | Ghosted | `ghosted` |
+| 11 | COMPLETE | Fail | `fail` |
+| 12 | COMPLETE | Blacklist | `blacklist` |
+
+The sheet wrote these as `BAD_FEELING` and `GOING_WELL`, because in a
+header row they were column labels rather than anything anyone read.
+`slug` is the key — what the code looks up, what the stylesheet hooks
+on — so `name` is free to be the words printed on a card. Migration
+`0003` makes that change; the slugs, and everything keyed on them, are
+untouched.
+
+`UNREMARKABLE` has no name at all. It is where a new opportunity lands
+(§6.6) and it means nothing notable happened, so there is nothing worth
+printing: its card carries the step and no label. Empty in the data
+rather than hidden in the template, because what a state is called is
+the state's business and the template only prints what it is handed
+(§6.3).
 
 No colours here. The sheet's hex values were a storage format, not a
 design; the palette is chosen fresh in CSS (§6.3).
@@ -905,27 +921,75 @@ One page, `GET /`. One row per live opportunity (§6.5), with an
 archived count in the header and nothing else about the archive.
 
 ```
--------------------------------------------------
-| SUMMARY | STEP 3 | STEP 2 | STEP 1 |
--------------------------------------------------
-   ^ sticky            ^ newest first, oldest right
+---------------------------------------------------
+| SUMMARY | | STEP 3 | STEP 2 | STEP 1 |          |
+|         | |<------- scrolls ------------------->|
+---------------------------------------------------
+   ^ fixed        ^ newest first, oldest right
 ```
 
+A row is two blocks, not one scroller with a pinned first child. The
+summary holds its place because it is the row's other block; the steps
+sit in a block of their own, and that block is what scrolls. Making the
+row itself the scroller runs the scrollbar under the summary card as
+well, which is the tell that the two are not separate.
+
 ```css
-.opportunity     { display: flex; gap: .5rem; overflow-x: auto; }
-.card--summary   { position: sticky; left: 0; flex: 0 0 18rem; z-index: 1; }
-.card--step      { flex: 0 0 16rem; }
+.opportunity        { display: flex; gap: .5rem; }
+.card--summary      { flex: 0 0 18rem; }
+.opportunity__steps { display: flex; align-items: center; flex: 1 1 0;
+                      min-width: 0; gap: .5rem; }
+.opportunity__track { display: flex; flex: 1 1 0; min-width: 0; gap: .5rem;
+                      overflow-x: auto; scrollbar-width: none; }
+.card--step         { flex: 0 0 16rem; }
 ```
+
+`min-width: 0` is load-bearing: a flex item defaults to `min-width: auto`,
+so without it the steps block sizes itself to its steps and pushes the
+row wide instead of scrolling.
 
 The summary card collapses `comments` to a few lines behind a native
 `<details>`, because it holds the pasted job ad — 1870 characters in
 the sample export (§4.8) — and an 18rem card cannot show that inline.
 No JavaScript needed for the toggle.
 
-Each row scrolls horizontally on its own, so a long-running opportunity
-does not force the whole page sideways. The summary card stays pinned
-at the left edge while its steps scroll under it. Step cards carry
+Each row's steps scroll on their own, so a long-running opportunity does
+not force the whole page sideways and does not drag its neighbours with
+it. The summary card stays where it is beside them. Step cards carry
 `data-state` and `data-group`; CSS turns those into colours (§6.3).
+
+What is hidden is the scrollbar, not the scrolling. A row with more
+steps than fit grows an arrow at each end of its track, which moves it a
+card at a time; a row whose steps already fit grows neither. The wheel,
+the trackpad and the keyboard still scroll the track, and the arrows
+follow, because they read the scroll position rather than a count of
+clicks — an index would go stale the moment the trackpad was used.
+
+### On a phone
+
+A summary beside its steps does not fit, so the row stacks:
+
+```
+-------------------------------------
+| Staff Backend Engineer          › |   <- tap to expand downwards
+| Northwind Analytics               |
+-------------------------------------
+| ‹ |   STEP 2 (one at a time)  | › |
+-------------------------------------
+```
+
+The summary spans the viewport and shows two lines — title and company —
+until it is tapped. The steps become one card at a time with an arrow
+either side; the track does not scroll, so nothing is swiped sideways
+and no step is half visible. An arrow that cannot move disables rather
+than disappears, and a row with one step or none shows neither.
+
+That needs state the CSS cannot hold on its own, so `static/js/board.js`
+holds it: about eighty lines, vendored, deferred, no build step. It is
+an enhancement rather than a requirement — the markup ships with every
+summary expanded and the track scrollable, and the rules that take the
+scrolling away are scoped to `.has-js`, which the script adds. A browser
+that never runs it gets the laptop board at phone width.
 
 ### HTMX routes
 
@@ -1019,7 +1083,9 @@ by a named test.
 
 - Board view, row partial, summary card, step card.
 - Tailwind standalone CLI wired into `task dev` in watch mode.
-- Sticky summary + per-row horizontal scroll (§7).
+- Fixed summary + per-row horizontal scroll, and the phone layout (§7):
+  a stacked row, a summary that collapses to two lines, and one step at
+  a time behind arrows.
 - State palette from §6.4 in one stylesheet, keyed on `data-state` /
   `data-group`.
 - Tests: view returns 200; steps render newest-first; a row with no

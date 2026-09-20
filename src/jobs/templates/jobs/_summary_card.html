@@ -1,0 +1,35 @@
+{# Deliberately outside the state palette: it is a different kind of object (§6.4). #}
+{# `aria-expanded` starts true and there is no `data-collapsed`, so a browser #}
+{# that never runs the script shows the whole card at every width (§7). #}
+<article class="card card--summary" data-summary>
+  <h2 class="card__heading">
+    <button class="card__head" type="button" data-summary-toggle
+            aria-expanded="true" aria-controls="summary-{{ opportunity.pk }}">
+      <span class="card__title">{{ opportunity.title }}</span>
+      <span class="card__subtitle">{{ opportunity.company.name }}</span>
+    </button>
+  </h2>
+
+  <div class="card__body" id="summary-{{ opportunity.pk }}">
+    <dl class="card__facts">
+      <dt>Applied</dt>
+      <dd><time datetime="{{ opportunity.date|date:'Y-m-d' }}">{{ opportunity.date|date:'j M Y' }}</time></dd>
+      {% if opportunity.source %}
+        <dt>Source</dt>
+        <dd>{{ opportunity.source.name }}</dd>
+      {% endif %}
+      {% if opportunity.contact %}
+        <dt>Contact</dt>
+        <dd>{{ opportunity.contact.name }}</dd>
+      {% endif %}
+    </dl>
+
+    {% if opportunity.comments %}
+      {# The pasted job ad, collapsed so it cannot blow out an 18rem card (§4.8, §7). #}
+      <details class="card__notes">
+        <summary>Notes</summary>
+        <p>{{ opportunity.comments }}</p>
+      </details>
+    {% endif %}
+  </div>
+</article>
