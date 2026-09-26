@@ -17,9 +17,14 @@
 - Active: `docs/plans/`
 - Archive: `docs/archive/`
 - Archive completed plans in the same PR
-- Archived filename format: `YYYY-MM-DD-HHMM-<shortsha>-<original-name>.md`
-  where date/time and SHA are from the commit that archives the plan
-  Example: `2026-05-24-2013-8a8c2cf-002-htmx-tailwind.md`
+- Plan filename format: `NNN-name-of-plan.md` — three digits, then
+  lowercase words joined by hyphens. Example: `002-deploy-to-vps.md`
+- Numbers are unique across `docs/plans/` and `docs/archive/`; a new
+  plan takes the next free one
+- Archiving moves the file with `git mv` and keeps its name. Only the
+  directory changes, so update links from `docs/plans/<name>` to
+  `docs/archive/<name>` in the same PR
+- `tests/test_plans.py` enforces the format and the numbering
 
 ## Architecture
 
@@ -191,7 +196,7 @@ source .venv/bin/activate
 | Colour, size, spacing | CSS | models, views, templates |
 
 The model layer knows nothing about how anything looks. If a hex value
-reaches `models.py`, the design is wrong — see `docs/plans/001` §6.3.
+reaches `models.py`, the design is wrong — see `docs/plans/001-port-gas-to-django.md` §6.3.
 
 ## Django
 
