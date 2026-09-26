@@ -1213,7 +1213,7 @@ HTTPS behind the password prompt.
 - Delete `clasp/`, or move it to `docs/archive/` if it is worth keeping
   as history.
 - Archive this plan per AGENTS.md:
-  `docs/archive/YYYY-MM-DD-HHMM-<shortsha>-001-port-gas-to-django.md`.
+  `docs/archive/001-port-gas-to-django.md`.
 
 ## 9. Local development
 
