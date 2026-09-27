@@ -1,4 +1,4 @@
-"""Domain model for the jobs CRM — see docs/plans/001-port-gas-to-django.md §6.
+"""Domain model for the jobs CRM — see the archived plan 001 §6.
 
 The model layer knows that a step has a state and that a state belongs to a
 group. It never knows what any of that looks like: colour lives in CSS (§6.3).
@@ -216,10 +216,15 @@ class Opportunity(models.Model):
         opportunity's contact, so the row has something in its track from the
         moment it exists. A domain rule, so it lives here: a second way of
         creating an opportunity must not be able to skip it.
+
+        The step lands in whichever database this opportunity was read from or
+        saved to, so an import into the demo database opens its rows there too
+        (plan 004 §6).
         """
-        step = Step.objects.create(
+        using = self._state.db
+        step = Step.objects.using(using).create(
             opportunity=self,
-            state=State.objects.get(slug=DEFAULT_STEP_STATE),
+            state=State.objects.using(using).get(slug=DEFAULT_STEP_STATE),
             date=self.date,
         )
         if self.contact is not None:

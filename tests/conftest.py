@@ -10,6 +10,13 @@ from jobs.models import Company, Contact, Opportunity, State
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+# The one exported opportunity the sheet's packing rules were validated against
+# (plan 003 §4.1), and the one bad cell it still contains (§4.2) with the fix the
+# cleanup checklist asks for.
+SAMPLE_EXPORT = PROJECT_ROOT / "clasp" / "Crm-clasp-2 - Sheet2.csv"
+STRAY_BLANK = "Scheduling interview\n\nMaya Richardson"
+CLEANED = "Scheduling interview\nMaya Richardson"
+
 
 @pytest.fixture(scope="session")
 def project_root() -> Path:
@@ -84,3 +91,15 @@ def opportunity(company: Company) -> Opportunity:
         title="Staff Software Engineer",
         date=dt.date(2026, 1, 5),
     )
+
+
+@pytest.fixture(scope="session")
+def sample_csv() -> str:
+    """The committed sample export, stray blank line and all."""
+    return SAMPLE_EXPORT.read_text()
+
+
+@pytest.fixture(scope="session")
+def cleaned_csv(sample_csv: str) -> str:
+    """The same export with §4.2's one bad cell fixed, as the checklist says to."""
+    return sample_csv.replace(STRAY_BLANK, CLEANED)

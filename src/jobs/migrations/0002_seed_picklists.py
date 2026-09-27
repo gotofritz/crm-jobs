@@ -1,25 +1,30 @@
 """Seed the picklists a fresh database needs — plan 001 §6.1 and §6.10.
 
-States come from the live sheet's header row, in column order. Sources and
-sectors are starter sets: new values are created by typing them (§6.9), so
-this is a head start, not a fixed vocabulary.
+States come from the live sheet's header row, in column order. UNREMARKABLE has
+no name: it is the state a new opportunity lands in (§6.6) and means nothing
+notable happened, so there is nothing worth printing. Sources and sectors are
+starter sets: new values are created by typing them (§6.9), so this is a head
+start, not a fixed vocabulary.
+
+Every write goes to the database being migrated, so `migrate --database demo`
+seeds demo.sqlite3 rather than the live database (plan 004 §6).
 """
 
 from django.db import migrations
 
 STATES = [
-    (1, "ATTENTION", "ERROR", "error"),
-    (2, "ATTENTION", "OVERDUE", "overdue"),
-    (3, "DUE", "DUE", "due"),
-    (4, "DUE", "TENTATIVE", "tentative"),
-    (5, "COMPLETE", "ACCEPTED", "accepted"),
-    (6, "COMPLETE", "SUCCESS", "success"),
-    (7, "COMPLETE", "BAD_FEELING", "bad-feeling"),
-    (8, "COMPLETE", "GOING_WELL", "going-well"),
-    (9, "COMPLETE", "UNREMARKABLE", "unremarkable"),
-    (10, "COMPLETE", "GHOSTED", "ghosted"),
-    (11, "COMPLETE", "FAIL", "fail"),
-    (12, "COMPLETE", "BLACKLIST", "blacklist"),
+    (1, "ATTENTION", "Error", "error"),
+    (2, "ATTENTION", "Overdue", "overdue"),
+    (3, "DUE", "Due", "due"),
+    (4, "DUE", "Tentative", "tentative"),
+    (5, "COMPLETE", "Accepted", "accepted"),
+    (6, "COMPLETE", "Success", "success"),
+    (7, "COMPLETE", "Bad Feeling", "bad-feeling"),
+    (8, "COMPLETE", "Going Well", "going-well"),
+    (9, "COMPLETE", "", "unremarkable"),
+    (10, "COMPLETE", "Ghosted", "ghosted"),
+    (11, "COMPLETE", "Fail", "fail"),
+    (12, "COMPLETE", "Blacklist", "blacklist"),
 ]
 
 SOURCES = ["LinkedIn", "Wellfound", "Referral", "Direct", "Recruiter"]
@@ -46,21 +51,22 @@ SECTORS = [
 ]
 
 
-def seed_picklists(apps, _schema_editor) -> None:
+def seed_picklists(apps, schema_editor) -> None:
     """Create the starter states, sources and sectors, leaving existing rows alone."""
+    alias = schema_editor.connection.alias
     state_model = apps.get_model("jobs", "State")
     source_model = apps.get_model("jobs", "Source")
     sector_model = apps.get_model("jobs", "Sector")
 
     for sort_order, group, name, slug in STATES:
-        state_model.objects.get_or_create(
+        state_model.objects.using(alias).get_or_create(
             slug=slug,
             defaults={"name": name, "group": group, "sort_order": sort_order},
         )
     for name in SOURCES:
-        source_model.objects.get_or_create(name=name)
+        source_model.objects.using(alias).get_or_create(name=name)
     for name in SECTORS:
-        sector_model.objects.get_or_create(name=name)
+        sector_model.objects.using(alias).get_or_create(name=name)
 
 
 class Migration(migrations.Migration):

@@ -112,16 +112,28 @@ WSGI_APPLICATION = "config.wsgi.application"
 # a write is in flight, and IMMEDIATE takes the write lock up front so a busy
 # database fails fast instead of half way through a transaction.
 DATABASE_PATH = Path(os.environ.get("DJANGO_DB_PATH", BASE_DIR.parent / "db.sqlite3"))
-DATABASES = {
-    "default": {
+
+# The board `poe demo` rebuilds and serves. A second alias rather than a second
+# settings module, so `manage.py import_sheet --demo` picks a database by name
+# instead of mutating a path at runtime (plan 003 I4). Under `poe demo`,
+# DJANGO_DB_PATH points `default` at this same file, which is correct: the demo
+# database is the demo database however you arrive at it.
+DEMO_DATABASE_PATH = Path(os.environ.get("DJANGO_DEMO_DB_PATH", BASE_DIR.parent / "demo.sqlite3"))
+
+
+def sqlite_at(path: Path) -> dict[str, object]:
+    """One SQLite entry, so the two databases cannot drift apart."""
+    return {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": DATABASE_PATH,
+        "NAME": path,
         "OPTIONS": {
             "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;",
             "transaction_mode": "IMMEDIATE",
         },
     }
-}
+
+
+DATABASES = {"default": sqlite_at(DATABASE_PATH), "demo": sqlite_at(DEMO_DATABASE_PATH)}
 
 
 # Password validation
