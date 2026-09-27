@@ -16,7 +16,7 @@ must not leave a half-created company behind.
 from typing import Any, ClassVar, TypeVar
 
 from django import forms
-from django.db import models
+from django.db import DEFAULT_DB_ALIAS, models
 
 from jobs.models import Company, Contact, Note, Opportunity, Sector, Source, Step
 
@@ -97,7 +97,7 @@ EDITABLE: dict[type[models.Model], set[str]] = {
 }
 
 
-def by_name(model: type[M], raw: str) -> M | None:
+def by_name(model: type[M], raw: str, *, using: str = DEFAULT_DB_ALIAS) -> M | None:
     """Resolve free text to a picklist row, creating it when it is new (§6.9).
 
     The first spelling entered wins: a later `FINTECH` matches the stored
@@ -107,11 +107,15 @@ def by_name(model: type[M], raw: str) -> M | None:
 
     On SQLite `iexact` is ASCII-only, which is fine for these names and worth
     knowing before anyone relies on it for accented ones (§6.9).
+
+    `using` is here for the sheet importer, which resolves the same names against
+    whichever database `--demo` picked (plan 003 §5). A form always means the one
+    the request is being served from.
     """
     name = " ".join(raw.split())
     if not name:
         return None
-    objects = model._default_manager
+    objects = model._default_manager.db_manager(using)
     return objects.filter(name__iexact=name).first() or objects.create(name=name)
 
 
@@ -230,9 +234,15 @@ class OpportunityForm(FieldScoped):
         # A card in edit mode is the same card, so it prints the same labels.
         labels: ClassVar[dict[str, str]] = {"date": "Applied"}
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        """Open the text inputs on what is stored, so an edit is not a retype."""
+    def __init__(self, *args: Any, using: str = DEFAULT_DB_ALIAS, **kwargs: Any) -> None:
+        """Open the text inputs on what is stored, so an edit is not a retype.
+
+        `using` is for `import_opportunities --demo`, which saves rows through this
+        form into a database the request is not served from (plan 004 §6). Every
+        name the form resolves, and every row it saves, goes there.
+        """
         super().__init__(*args, **kwargs)
+        self.using = using
         opportunity = self.instance
         if opportunity.pk is None:
             return
@@ -261,7 +271,11 @@ class OpportunityForm(FieldScoped):
         # On a create the form is whole, so the typed name is always there. On a
         # narrowed edit of some other field it is not, and the row keeps the
         # company it already had.
-        typed = by_name(Company, self.cleaned_data["company"]) if self.edits("company") else None
+        typed = (
+            by_name(Company, self.cleaned_data["company"], using=self.using)
+            if self.edits("company")
+            else None
+        )
         company = typed if typed is not None else self.instance.company
 
         opened_on_it = company.pk is not None and company.pk == self._opened_on
@@ -274,13 +288,13 @@ class OpportunityForm(FieldScoped):
                 changed.append(company_field)
 
         if self.edits("company_sector"):
-            sector = by_name(Sector, self.cleaned_data["company_sector"])
+            sector = by_name(Sector, self.cleaned_data["company_sector"], using=self.using)
             if sector is not None or opened_on_it:
                 company.sector = sector
                 changed.append("sector")
 
         if changed:
-            company.save(update_fields=changed)
+            company.save(update_fields=changed, using=self.using)
         return company
 
     def save(self, commit: bool = True) -> Opportunity:
@@ -292,11 +306,11 @@ class OpportunityForm(FieldScoped):
         opportunity = super().save(commit=False)
         opportunity.company = self._resolve_company()
         if self.edits("source"):
-            opportunity.source = by_name(Source, self.cleaned_data["source"])
+            opportunity.source = by_name(Source, self.cleaned_data["source"], using=self.using)
         if self.edits("contact"):
-            opportunity.contact = by_name(Contact, self.cleaned_data["contact"])
+            opportunity.contact = by_name(Contact, self.cleaned_data["contact"], using=self.using)
         if commit:
-            opportunity.save()
+            opportunity.save(using=self.using)
         return opportunity
 
 

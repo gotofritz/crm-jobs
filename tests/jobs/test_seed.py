@@ -79,3 +79,20 @@ def test_unremarkable_has_nothing_to_say() -> None:
     """
     assert State.objects.get(slug="unremarkable").name == ""
     assert State.objects.exclude(slug="unremarkable").filter(name="").count() == 0
+
+
+@pytest.mark.django_db(databases=["default", "demo"])
+def test_the_demo_database_is_seeded_like_the_live_one() -> None:
+    """`migrate --database demo` must seed demo.sqlite3, not the live database.
+
+    Every import into the demo database opens its rows in `unremarkable`, so a
+    demo database with no states cannot take one (plan 004 §6).
+    """
+    seeded = [
+        (state.sort_order, state.group, state.name, state.slug)
+        for state in State.objects.using("demo").order_by("sort_order")
+    ]
+
+    assert seeded == SEEDED_STATES
+    assert Source.objects.using("demo").count() == Source.objects.using("default").count()
+    assert Sector.objects.using("demo").count() == Sector.objects.using("default").count()

@@ -22,7 +22,15 @@ a write is in flight and a write takes its lock up front rather than half way
 through a transaction.
 
 `migrate` also seeds the picklists — twelve states, five sources, eighteen
-sectors — so a fresh checkout has a usable board without a fixture step.
+sectors — so a fresh checkout has a usable board without a fixture step. The
+seed writes to whichever database is being migrated, so
+`migrate --database demo` seeds `demo.sqlite3` too.
+
+There are two aliases, `default` and `demo`, built by one function so they
+cannot drift apart. `demo` is `./demo.sqlite3`, moved by `DJANGO_DEMO_DB_PATH`,
+and it exists so `import_sheet --demo` and `import_opportunities --demo` can
+pick a database by name rather than mutate a path after Django has started. Nothing else uses it: under
+`poe demo`, `DJANGO_DB_PATH` already points `default` at the same file.
 
 ### Settings and secrets
 
@@ -40,6 +48,7 @@ rather than on the first signed cookie.
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | empty | comma separated, with scheme |
 | `DJANGO_HSTS_SECONDS` | `31536000` (one year) | ignored while `DEBUG` is on |
 | `DJANGO_DB_PATH` | `./db.sqlite3` | `/var/lib/crm-jobs/db.sqlite3` on the VPS; `poe demo` pins it to `./demo.sqlite3` |
+| `DJANGO_DEMO_DB_PATH` | `./demo.sqlite3` | the `demo` alias, which only the importers' `--demo` reads |
 
 Secure cookies and HSTS follow `DEBUG`, so production is one switch rather than
 six. `uv run poe qa` ends with `check-deploy`, which runs Django's deployment
@@ -194,6 +203,68 @@ not the same database, and it cannot be: Django runs SQLite tests against
 `file:memorydb_default?mode=memory&cache=shared`, which exists only inside the
 pytest process and only for the length of the run. `demo.sqlite3` is the
 file-backed equivalent for a browser to look at.
+
+### Importing the old sheet
+
+`manage.py import_sheet <csv> [--demo] [--dry-run]` reads a CSV export of the
+retired Google Sheet into the tables (`docs/archive/003-import-the-sheet.md`). It
+is split in three, and the split is the point:
+
+| Module | Knows about | Does not know about |
+|--------|-------------|---------------------|
+| `src/jobs/sheet.py` | the exported text, the two packing formats, the state table | the ORM |
+| `src/jobs/importer.py` | the models, the transaction, the alias `--demo` picks | the file, or that CSV exists |
+| `management/commands/import_sheet.py` | arguments, refusals, the report | either of the above's rules |
+
+The parser is therefore testable without a database and the writer without a
+file.
+
+Three behaviours worth knowing before changing any of it:
+
+- **Bad cells stop everything.** A cell fitting neither packing format is
+  reported with its row and column, and nothing is written — not even the rows
+  that parsed. The sheet is fixed, re-exported and re-run. Guessing at a
+  malformed cell would mangle a comment that happens to name somebody.
+- **A step's state is a guess.** A CSV export cannot carry it: it was the cell's
+  background colour. `state_for` infers it from the title against one ordered
+  table, falls back to `unremarkable`, and every single inference is printed so
+  a `--dry-run` shows what a run would decide before it decides it.
+- **Contact identity is per company.** `Contact.name` is not unique on purpose,
+  so one name under two companies becomes two people, each with an `Employment`
+  at their own company, and the collision is listed for a human rather than
+  resolved.
+
+`--dry-run` runs the real write inside a savepoint and rolls it back, so the
+preview cannot differ from the thing it previews.
+
+### Importing opportunities from a CSV
+
+`manage.py import_opportunities <csv|-> [--demo] [--dry-run] [--template]`
+adds a flat CSV — one opportunity per row, a header naming the columns — to
+the board (`docs/archive/004-import-opportunities-csv.md`). It shares the
+sheet import's shape, and its writer:
+
+| Module | Knows about | Does not know about |
+|--------|-------------|---------------------|
+| `src/jobs/opportunity_csv.py` | the text, the header, line numbers | the ORM, forms |
+| `src/jobs/importer.py` | `OpportunityForm`, the models, the transaction | the file, or that CSV exists |
+| `management/commands/import_opportunities.py` | arguments, refusals, the report | either of the above's rules |
+| `src/jobs/management/refusals.py` | the refusals both import commands make | anything else |
+
+Worth knowing before changing any of it:
+
+- **Every row goes through `OpportunityForm`**, the board's own form, so an
+  import cannot accept what a card would refuse, and names resolve the way
+  they do on the board. The form takes `using=`, and `add_first_step` writes
+  to its opportunity's own database, which is what keeps `--demo` off the live
+  database. `COLUMNS` and `REQUIRED` are written out in the reader and pinned
+  to the form by a test.
+- **Anything wrong stops everything.** Header and row problems are reported
+  together with their line and column, and nothing is written.
+- **Existing rows are skipped, never updated.** The key is company
+  (case-insensitive), title and date. Unlike the sheet import, a re-run must
+  not revert edits made on the board since. The same row twice in one file is
+  a problem.
 
 ### Ordering
 
@@ -513,6 +584,9 @@ fails if a hex value appears in any `.py` or `.html` file under `src/`.
 | Sort/ordering rules | `src/jobs/ordering.py`, pure functions | views, templates, DB ordering hacks |
 | Validation, coercion | `src/jobs/forms.py` | views, models' `save()` |
 | Fetch and render | `src/jobs/views.py` | business rules |
+| Unpacking the old sheet | `src/jobs/sheet.py`, pure functions | the ORM |
+| Reading a CSV of opportunities | `src/jobs/opportunity_csv.py`, pure functions | the ORM, forms |
+| Writing an import | `src/jobs/importer.py` | the file it came from |
 | Markup, data attributes | templates | business rules |
 | Colour, size, spacing | CSS | models, views, templates |
 
