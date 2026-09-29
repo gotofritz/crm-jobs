@@ -1,10 +1,9 @@
 """Writing through the board's form into a chosen database — plan 004 §6, Phase 1.
 
-`import_opportunities --demo` validates and saves every row through
-`OpportunityForm`, and opens each row with `add_first_step`. Both must write
-where they are told, or `--demo` would check a row against demo.sqlite3 and
-create its company in the live database. These tests open both aliases so the
-second one can be seen to stay empty.
+`OpportunityForm` and `add_first_step` must write where they are told, or a
+row checked against demo.sqlite3 would create its company in the live
+database. These tests open both aliases so the second one can be seen to stay
+empty.
 """
 
 import datetime as dt

@@ -14,5 +14,5 @@
 {% elif field == "contacts" %}
   {% include "jobs/_editable.html" with url=value_url text=step.contact_names label="Who this step was with" %}
 {% elif field == "comments" %}
-  {% include "jobs/_editable.html" with url=value_url text=step.comments label="Notes on this step" %}
+  {% include "jobs/_editable.html" with url=value_url text=step.comments label="Notes on this step" markup=True %}
 {% endif %}

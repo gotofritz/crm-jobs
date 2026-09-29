@@ -5,23 +5,37 @@
 .card--step {
   background: var(--state-bg);
   color: var(--state-fg);
+  /* The controls and hints on a card sit on the state's background, so they
+     take its ink rather than the greys chosen for a white card: Edit's grey
+     was 1.33:1 on ACCEPTED. The ink clears 4.5:1 on every state by design. */
+  --control-fg: var(--state-fg);
+  --muted-fg: var(--state-fg);
 }
 
+/* Delete keeps its red wherever red clears 4.5:1. The states below are too dark
+   or too saturated for it, so there it takes the card's ink as well, and the
+   word and the confirmation carry the warning. */
+
 /* Group fallback: a state added as data, with no rule of its own, still renders. */
-[data-group="attention"] { --state-bg: #b3261e; --state-fg: #ffffff; }
+[data-group="attention"] { --state-bg: #b3261e; --state-fg: #ffffff;
+                            --danger-fg: var(--state-fg); }
 [data-group="due"]       { --state-bg: #ffd54f; --state-fg: #1a1a1a; }
 [data-group="complete"]  { --state-bg: #f5f5f5; --state-fg: #1a1a1a; }
 
 /* Per-state, later in the cascade so it wins at equal specificity. */
-[data-state="error"]        { --state-bg: #b3261e; --state-fg: #ffffff; }
-[data-state="overdue"]      { --state-bg: #e8710a; --state-fg: #1a1a1a; }
+[data-state="error"]        { --state-bg: #b3261e; --state-fg: #ffffff;
+                              --danger-fg: var(--state-fg); }
+[data-state="overdue"]      { --state-bg: #e8710a; --state-fg: #1a1a1a;
+                              --danger-fg: var(--state-fg); }
 [data-state="due"]          { --state-bg: #ffd54f; --state-fg: #1a1a1a; }
 [data-state="tentative"]    { --state-bg: #fff3cd; --state-fg: #1a1a1a; }
-[data-state="accepted"]     { --state-bg: #1b5e20; --state-fg: #ffffff; }
+[data-state="accepted"]     { --state-bg: #1b5e20; --state-fg: #ffffff;
+                              --danger-fg: var(--state-fg); }
 [data-state="success"]      { --state-bg: #a5d6a7; --state-fg: #1a1a1a; }
 [data-state="going-well"]   { --state-bg: #c8e6c9; --state-fg: #1a1a1a; }
 [data-state="unremarkable"] { --state-bg: #f5f5f5; --state-fg: #1a1a1a; }
-[data-state="bad-feeling"]  { --state-bg: #e28fae; --state-fg: #1a1a1a; }
+[data-state="bad-feeling"]  { --state-bg: #e28fae; --state-fg: #1a1a1a;
+                              --danger-fg: var(--state-fg); }
 
 /* GHOSTED is the state you scan for, and the pale end of COMPLETE is close in
    lightness, so it gets a second channel on top of its colour (§6.4). */
@@ -29,4 +43,5 @@
                               border-style: dashed; }
 
 [data-state="fail"]         { --state-bg: #d7ccc8; --state-fg: #4e342e; }
-[data-state="blacklist"]    { --state-bg: #37474f; --state-fg: #ffffff; }
+[data-state="blacklist"]    { --state-bg: #37474f; --state-fg: #ffffff;
+                              --danger-fg: var(--state-fg); }

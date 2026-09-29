@@ -13,14 +13,12 @@ Resolution happens in `save`, never in `clean`: a form that fails validation
 must not leave a half-created company behind.
 """
 
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar
 
 from django import forms
 from django.db import DEFAULT_DB_ALIAS, models
 
 from jobs.models import Company, Contact, Note, Opportunity, Sector, Source, Step
-
-M = TypeVar("M", bound=models.Model)
 
 
 # `LANGUAGE_CODE` is `en-gb`, so Django localises a date on the way out as
@@ -97,7 +95,9 @@ EDITABLE: dict[type[models.Model], set[str]] = {
 }
 
 
-def by_name(model: type[M], raw: str, *, using: str = DEFAULT_DB_ALIAS) -> M | None:
+def by_name[M: models.Model](
+    model: type[M], raw: str, *, using: str = DEFAULT_DB_ALIAS
+) -> M | None:
     """Resolve free text to a picklist row, creating it when it is new (§6.9).
 
     The first spelling entered wins: a later `FINTECH` matches the stored
@@ -108,9 +108,9 @@ def by_name(model: type[M], raw: str, *, using: str = DEFAULT_DB_ALIAS) -> M | N
     On SQLite `iexact` is ASCII-only, which is fine for these names and worth
     knowing before anyone relies on it for accented ones (§6.9).
 
-    `using` is here for the sheet importer, which resolves the same names against
-    whichever database `--demo` picked (plan 003 §5). A form always means the one
-    the request is being served from.
+    `using` lets a command resolve the same names against whichever database
+    `--demo` picked, as the TSV import in plan 005 will. A form on the board
+    always means the one the request is being served from.
     """
     name = " ".join(raw.split())
     if not name:
@@ -237,9 +237,9 @@ class OpportunityForm(FieldScoped):
     def __init__(self, *args: Any, using: str = DEFAULT_DB_ALIAS, **kwargs: Any) -> None:
         """Open the text inputs on what is stored, so an edit is not a retype.
 
-        `using` is for `import_opportunities --demo`, which saves rows through this
-        form into a database the request is not served from (plan 004 §6). Every
-        name the form resolves, and every row it saves, goes there.
+        `using` saves rows through this form into a database the request is not
+        served from, such as the demo one (plan 004 §6). Every name the form
+        resolves, and every row it saves, goes there.
         """
         super().__init__(*args, **kwargs)
         self.using = using
