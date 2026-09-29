@@ -37,7 +37,7 @@ def test_django_never_redirects_to_https_itself() -> None:
 
 
 def test_the_demo_database_is_a_second_alias() -> None:
-    """`--demo` on the importer picks an alias, not a mutated path (plan 003 I4)."""
+    """`--demo` on a command picks an alias, not a mutated path (plan 003 I4)."""
     assert set(settings.DATABASES) == {"default", "demo"}
 
 

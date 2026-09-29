@@ -254,6 +254,14 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* A `- ` list typed into a step comment or a note (`jobs.markup`). Preflight
+   strips list styling, so the disc and its indent are put back here. */
+.bullets {
+  margin: 0;
+  padding-left: 1.1em;
+  list-style: disc;
+}
+
 /* The pasted job ad is 1870 characters in the sample export (§4.8), so it is
    collapsed by default and an 18rem card keeps its shape either way. */
 .card__notes {

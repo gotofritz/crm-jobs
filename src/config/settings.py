@@ -114,8 +114,9 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASE_PATH = Path(os.environ.get("DJANGO_DB_PATH", BASE_DIR.parent / "db.sqlite3"))
 
 # The board `poe demo` rebuilds and serves. A second alias rather than a second
-# settings module, so `manage.py import_sheet --demo` picks a database by name
-# instead of mutating a path at runtime (plan 003 I4). Under `poe demo`,
+# settings module, so a command can take `--demo` and pick a database by name
+# instead of mutating a path at runtime (plan 003 I4; the TSV import in plan 005
+# is the next to use it). Under `poe demo`,
 # DJANGO_DB_PATH points `default` at this same file, which is correct: the demo
 # database is the demo database however you arrive at it.
 DEMO_DATABASE_PATH = Path(os.environ.get("DJANGO_DEMO_DB_PATH", BASE_DIR.parent / "demo.sqlite3"))

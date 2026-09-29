@@ -54,33 +54,33 @@ def _seconds_into_the_day(time: dt.time | None) -> float:
     )
 
 
-def _moment(step: "Step") -> float:
+def _moment(step: Step) -> float:
     """Where a step sits on the timeline, as one comparable number (§4.5)."""
     return step.date.toordinal() * _SECONDS_PER_DAY + _seconds_into_the_day(step.time)
 
 
-def _timeline_key(step: "Step") -> float:
+def _timeline_key(step: Step) -> float:
     """The date tie-break: ascending, except inside `INVERTED_GROUP` (§4.5)."""
     moment = _moment(step)
     return -moment if step.state.group == INVERTED_GROUP else moment
 
 
-def step_sort_key(step: "Step") -> tuple[int, float]:
+def step_sort_key(step: Step) -> tuple[int, float]:
     """Sort key for a step within its opportunity (§4.5, `Opportunity.sortSteps`)."""
     return (-group_rank(step.state.group), _timeline_key(step))
 
 
-def sort_steps(steps: "Iterable[Step]") -> "list[Step]":
+def sort_steps(steps: Iterable[Step]) -> list[Step]:
     """Steps in §4.5 order. Stable, so equal timestamps keep the order they arrived in."""
     return sorted(steps, key=step_sort_key)
 
 
-def top_step(steps: "Iterable[Step]") -> "Step | None":
+def top_step(steps: Iterable[Step]) -> Step | None:
     """The step an opportunity is judged by: the first one `sort_steps` leaves (§4.5)."""
     return next(iter(sort_steps(steps)), None)
 
 
-def opportunity_sort_key(step: "Step | None") -> tuple[int, int, int, float]:
+def opportunity_sort_key(step: Step | None) -> tuple[int, int, int, float]:
     """Sort key for an opportunity, keyed on its top step (§4.5, `Pool.sortOpportunities`).
 
     An opportunity with no steps sorts before every other one, so the leading
@@ -91,7 +91,7 @@ def opportunity_sort_key(step: "Step | None") -> tuple[int, int, int, float]:
     return (1, -group_rank(step.state.group), step.state.sort_order, _timeline_key(step))
 
 
-def sort_opportunities(opportunities: "Iterable[Opportunity]") -> "list[Opportunity]":
+def sort_opportunities(opportunities: Iterable[Opportunity]) -> list[Opportunity]:
     """Opportunities in board order (§4.5).
 
     Prefetch `steps__state` first, or this reaches back into the database once
@@ -103,7 +103,7 @@ def sort_opportunities(opportunities: "Iterable[Opportunity]") -> "list[Opportun
     )
 
 
-def note_sort_key(note: "Note") -> tuple[dt.datetime, int]:
+def note_sort_key(note: Note) -> tuple[dt.datetime, int]:
     """Sort key for a note within its opportunity, read with `reverse=True`.
 
     The row's own id is the tie-break: a batch written in one go can share a
@@ -112,6 +112,6 @@ def note_sort_key(note: "Note") -> tuple[dt.datetime, int]:
     return (note.created_at, note.pk or 0)
 
 
-def sort_notes(notes: "Iterable[Note]") -> "list[Note]":
+def sort_notes(notes: Iterable[Note]) -> list[Note]:
     """Notes newest first — the last thing written about an opportunity is read first."""
     return sorted(notes, key=note_sort_key, reverse=True)

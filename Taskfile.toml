@@ -1,3 +1,6 @@
+[tool.poe.env]
+default_port = "8007"
+
 [tool.poe.tasks]
 test = "pytest"
 
@@ -25,8 +28,9 @@ sequence = [
   {shell = "rm -f demo.sqlite3 demo.sqlite3-wal demo.sqlite3-shm"},
   "migrate",
   {cmd = "python manage.py seed_demo"},
-  "serve"
+  "serve --port $port"
 ]
+args = [{name = "port", default = "$default_port"}]
 
 [tool.poe.tasks.demo.env]
 # A plain value, not a default: the task deletes demo.sqlite3 by name, so it
@@ -39,8 +43,9 @@ sequence = [
   {cmd = "uv sync"},
   "tailwind-install",
   "migrate",
-  "serve"
+  "serve --port ${port}"
 ]
+args = [{name = "port", default = "$default_port"}]
 
 [tool.poe.tasks.lint]
 help = "Lint the project"
@@ -82,8 +87,13 @@ trap 'kill 0' EXIT
 # Same flags as `poe css`: static/css/app.css is committed, so a watch that
 # left it unminified would rewrite the file on every dev run.
 .tailwind/tailwindcss -i assets/app.css -o static/css/app.css --minify --watch=always &
-python manage.py runserver
+python manage.py runserver $port
 '''
+
+[tool.poe.tasks.serve.args.port]
+options = ["-p", "--port"]
+help = "The port on which to expose the service"
+default = "$default_port"
 
 [tool.poe.tasks.superuser]
 help = "Create a Django admin superuser"

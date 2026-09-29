@@ -172,3 +172,44 @@ def test_the_compiled_stylesheet_carries_the_palette(palette_css: str, compiled_
     }
 
     assert built == source
+
+
+# The controls a step card carries sit on the state's background, so they are
+# held to the same bar as its text. Edit and the other quiet controls take the
+# card's own ink; Delete keeps its red only where red is legible, and a state
+# where it is not says so by pointing `--danger-fg` at its ink too.
+_CARD_INK_CONTROLS = re.compile(r"\.card--step\s*\{[^}]*--control-fg:\s*var\(--state-fg\)")
+_DANGER_IN_INK = re.compile(r"--danger-fg:\s*var\(--state-fg\)")
+_ROOT_DANGER = re.compile(r"--danger-fg:\s*(?P<value>#[0-9a-f]{3,6})")
+
+
+@pytest.fixture
+def danger_fg(project_root: Path) -> str:
+    """The red every light surface uses for Delete, as `forms.css` declares it."""
+    match = _ROOT_DANGER.search((project_root / "assets" / "forms.css").read_text())
+    assert match is not None
+    return _expand(match["value"])
+
+
+@pytest.mark.parametrize("stylesheet", ["palette_css", "compiled_css"])
+def test_a_step_cards_quiet_controls_take_its_ink(
+    request: pytest.FixtureRequest, stylesheet: str
+) -> None:
+    """Edit on ACCEPTED's dark green was 1.33:1. The card's ink is legible by construction."""
+    assert _CARD_INK_CONTROLS.search(request.getfixturevalue(stylesheet))
+
+
+@pytest.mark.parametrize("stylesheet", ["palette_css", "compiled_css"])
+def test_delete_is_legible_on_every_state(
+    request: pytest.FixtureRequest, stylesheet: str, danger_fg: str
+) -> None:
+    """Red on dark green was 1.02:1. Each state keeps the red or swaps it for its ink."""
+    css = request.getfixturevalue(stylesheet)
+    illegible = []
+    for kind, key in rules(css):
+        background, foreground = declared_pair(css, kind=kind, key=key)
+        delete = foreground if _DANGER_IN_INK.search(rules(css)[kind, key]) else danger_fg
+        if contrast_ratio(background, delete) < WCAG_AA_BODY_TEXT:
+            illegible.append(f"{kind}={key}")
+
+    assert illegible == []

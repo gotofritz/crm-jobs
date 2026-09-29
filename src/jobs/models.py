@@ -35,7 +35,7 @@ class Sector(models.Model):
     """A coarse industry label, extended by typing rather than by deploy (§6.10)."""
 
     if TYPE_CHECKING:
-        companies: "RelatedManager[Company]"
+        companies: RelatedManager[Company]
 
     name = models.CharField(max_length=100, unique=True)
 
@@ -52,8 +52,8 @@ class Company(models.Model):
     """
 
     if TYPE_CHECKING:
-        opportunities: "RelatedManager[Opportunity]"
-        employments: "RelatedManager[Employment]"
+        opportunities: RelatedManager[Opportunity]
+        employments: RelatedManager[Employment]
 
     name = models.CharField(max_length=200, unique=True)
     url = models.URLField(blank=True, default="")
@@ -72,9 +72,9 @@ class Contact(models.Model):
     """A person. The name is deliberately not unique — two people share one (§6.7)."""
 
     if TYPE_CHECKING:
-        opportunities: "RelatedManager[Opportunity]"
-        employments: "RelatedManager[Employment]"
-        steps: "RelatedManager[Step]"
+        opportunities: RelatedManager[Opportunity]
+        employments: RelatedManager[Employment]
+        steps: RelatedManager[Step]
 
     name = models.CharField(max_length=200)
     notes = models.TextField(blank=True, default="")
@@ -87,7 +87,7 @@ class Contact(models.Model):
 class EmploymentQuerySet(models.QuerySet["Employment"]):
     """Stints, asked about by the day they were true."""
 
-    def on(self, day: dt.date) -> "EmploymentQuerySet":
+    def on(self, day: dt.date) -> EmploymentQuerySet:
         """Stints in force on ``day``, counting a NULL bound as open rather than absent."""
         return self.filter(
             Q(started_on__isnull=True) | Q(started_on__lte=day),
@@ -147,15 +147,15 @@ class State(models.Model):
 class OpportunityQuerySet(models.QuerySet["Opportunity"]):
     """Live and archived are asked for explicitly — no manager filters silently (§6.5)."""
 
-    def live(self) -> "OpportunityQuerySet":
+    def live(self) -> OpportunityQuerySet:
         """Opportunities that have not been archived."""
         return self.filter(archived_at__isnull=True)
 
-    def archived(self) -> "OpportunityQuerySet":
+    def archived(self) -> OpportunityQuerySet:
         """Opportunities that have been archived."""
         return self.exclude(archived_at__isnull=True)
 
-    def in_board_order(self) -> "list[Opportunity]":
+    def in_board_order(self) -> list[Opportunity]:
         """Board order (§4.5).
 
         A list, not a queryset: the date tie-break inverts on the state's group,
@@ -168,7 +168,7 @@ class OpportunityQuerySet(models.QuerySet["Opportunity"]):
         )
         return sort_opportunities(rows)
 
-    def in_archive_order(self) -> "OpportunityQuerySet":
+    def in_archive_order(self) -> OpportunityQuerySet:
         """Archived opportunities, most recently put away first (§6.5).
 
         Urgency ranking is meaningless once nothing is pending; "which burst was
@@ -181,8 +181,8 @@ class Opportunity(models.Model):
     """One application at one company, carrying the steps taken on it."""
 
     if TYPE_CHECKING:
-        steps: "RelatedManager[Step]"
-        notes: "RelatedManager[Note]"
+        steps: RelatedManager[Step]
+        notes: RelatedManager[Note]
 
     company = models.ForeignKey(Company, related_name="opportunities", on_delete=models.PROTECT)
     title = models.CharField(max_length=200)  # free text, see §6.8
@@ -209,7 +209,7 @@ class Opportunity(models.Model):
         """Name the opportunity by its title and company."""
         return f"{self.title} at {self.company.name}"
 
-    def add_first_step(self) -> "Step":
+    def add_first_step(self) -> Step:
         """Open this opportunity with a step, the way the GAS app did (§4.4).
 
         The step is dated when the application went out and carries the
@@ -232,7 +232,7 @@ class Opportunity(models.Model):
         return step
 
     @property
-    def ordered_steps(self) -> "list[Step]":
+    def ordered_steps(self) -> list[Step]:
         """This opportunity's steps in §4.5 order, so the board template need not sort.
 
         Reads the prefetched rows `in_board_order` loaded, so the board costs no
@@ -242,7 +242,7 @@ class Opportunity(models.Model):
         return sort_steps(self.steps.all())
 
     @property
-    def ordered_notes(self) -> "list[Note]":
+    def ordered_notes(self) -> list[Note]:
         """This opportunity's notes newest first, so the board template need not sort.
 
         Reads the rows `in_board_order` prefetched, for the same reason

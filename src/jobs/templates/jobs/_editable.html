@@ -4,6 +4,8 @@
 {# read as text until it is hovered — this carries identity, not appearance. #}
 {# A value with nothing in it still has to be clickable, so it keeps its box and #}
 {# says what it is through `aria-label` rather than through printed text. #}
+{# `markup` is for the free-text fields: their `- ` lines become a list. #}
+{% load markup %}
 <a class="editable{% if not text %} editable--empty{% endif %}" href="{{ url }}"
    {% if label %}aria-label="{{ label }}"{% endif %}
-   hx-get="{{ url }}" hx-target="this" hx-swap="outerHTML">{% if iso %}<time datetime="{{ iso }}">{{ text }}</time>{% elif text %}{{ text }}{% else %}{{ placeholder }}{% endif %}</a>
+   hx-get="{{ url }}" hx-target="this" hx-swap="outerHTML">{% if iso %}<time datetime="{{ iso }}">{{ text }}</time>{% elif text %}{% if markup %}{{ text|bullets }}{% else %}{{ text }}{% endif %}{% else %}{{ placeholder }}{% endif %}</a>
