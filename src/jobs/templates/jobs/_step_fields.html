@@ -8,6 +8,10 @@
   <dd>{{ form.date }}{{ form.date.errors }}{{ form.time }}{{ form.time.errors }}</dd>
   <dt>{{ form.contacts.label }}</dt>
   <dd>{{ form.contacts }}{{ form.contacts.errors }}</dd>
+  {% if form.previous_state %}
+  <dt>{{ form.previous_state.label }}</dt>
+  <dd>{{ form.previous_state }}{{ form.previous_state.errors }}</dd>
+  {% endif %}
   <dt>Notes</dt>
   <dd>{{ form.comments }}{{ form.comments.errors }}</dd>
 </dl>
