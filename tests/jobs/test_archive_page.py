@@ -276,3 +276,15 @@ def test_without_the_script_the_bar_is_usable(client: Client) -> None:
 
     assert "data-select-all hidden" in body
     assert "disabled" not in body.split('id="bulk-form"')[1].split("</form>")[0]
+
+
+@pytest.mark.usefixtures("opportunity")
+def test_the_checkbox_sits_beside_the_title_not_above_it(
+    client: Client, compiled_css: str, layout_css: str
+) -> None:
+    """The title is a block, so the tick needs a grid column of its own."""
+    body = client.get("/").content.decode()
+
+    assert "card__heading--selectable" in body
+    assert "card__heading--selectable" in compiled_css
+    assert "grid-template-columns" in layout_css + (compiled_css or "")

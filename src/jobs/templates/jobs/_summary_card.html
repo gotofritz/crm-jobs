@@ -26,7 +26,7 @@
     {# nest. Inside the card, because that is where the notes belong. #}
     {% include "jobs/_notes.html" %}
   {% else %}
-    <h2 class="card__heading">
+    <h2 class="card__heading card__heading--selectable">
       {# Ticks a row for the bulk bar. `form=` ties it to the header's form, #}
       {# since forms do not nest (plan 006). #}
       <input class="card__select" type="checkbox" name="ids" value="{{ opportunity.pk }}"

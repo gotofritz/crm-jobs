@@ -107,9 +107,25 @@
   gap: 0.4rem;
 }
 
+/* The title and company are blocks, so a tick placed before them would sit on a
+   line of its own. A two-column grid puts it beside the title and leaves the
+   company underneath, aligned with the title. */
+.card__heading--selectable {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.5rem;
+  align-items: baseline;
+}
+
+.card__heading--selectable > .card__title,
+.card__heading--selectable > .card__subtitle {
+  grid-column: 2;
+}
+
 .card__select {
-  margin: 0 0.4rem 0 0;
-  vertical-align: middle;
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0;
   cursor: pointer;
 }
 
