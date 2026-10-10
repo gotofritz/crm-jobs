@@ -16,8 +16,8 @@
 
       <footer class="card__controls">
         <button class="control" type="submit">Done</button>
-        <a class="control" href="/"
-           hx-get="/" hx-select="#opportunity-{{ opportunity.pk }}"
+        <a class="control" href="{% if opportunity.archived_at %}/archive/{% else %}/{% endif %}"
+           hx-get="{% if opportunity.archived_at %}/archive/{% else %}/{% endif %}" hx-select="#opportunity-{{ opportunity.pk }}"
            hx-target="#opportunity-{{ opportunity.pk }}" hx-swap="outerHTML">Cancel</a>
       </footer>
     </form>
@@ -26,7 +26,11 @@
     {# nest. Inside the card, because that is where the notes belong. #}
     {% include "jobs/_notes.html" %}
   {% else %}
-    <h2 class="card__heading">
+    <h2 class="card__heading card__heading--selectable">
+      {# Ticks a row for the bulk bar. `form=` ties it to the header's form, #}
+      {# since forms do not nest (plan 006). #}
+      <input class="card__select" type="checkbox" name="ids" value="{{ opportunity.pk }}"
+             form="bulk-form" data-select aria-label="Select {{ opportunity.title }}">
       <span class="card__title">{% include "jobs/_opportunity_value.html" with field="title" %}</span>
       <span class="card__subtitle">{% include "jobs/_opportunity_value.html" with field="company" %}</span>
     </h2>

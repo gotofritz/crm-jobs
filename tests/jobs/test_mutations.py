@@ -294,44 +294,6 @@ def test_unarchiving_puts_one_back(client: Client, opportunity: Opportunity) -> 
     assert f'id="opportunity-{opportunity.pk}"' in client.get("/").content.decode()
 
 
-@pytest.mark.usefixtures("opportunity")
-def test_archiving_everything_live_empties_the_board(client: Client, company: Company) -> None:
-    """The "I got a job" action, at the end of a burst (§6.5)."""
-    Opportunity.objects.create(company=company, title="Other", date=dt.date(2026, 1, 6))
-
-    response = client.post("/opportunities/archive-live", headers=HTMX)
-
-    assert response.status_code == 200
-    assert Opportunity.objects.live().count() == 0
-    assert Opportunity.objects.archived().count() == 2
-
-
-@pytest.mark.usefixtures("opportunity")
-def test_archiving_everything_live_leaves_the_archive_alone(
-    client: Client, company: Company
-) -> None:
-    """An already-archived row keeps the timestamp that says which burst it was (§6.5)."""
-    earlier = Opportunity.objects.create(
-        company=company,
-        title="Old",
-        date=dt.date(2025, 11, 1),
-        archived_at=dt.datetime(2025, 12, 1, tzinfo=dt.UTC),
-    )
-
-    client.post("/opportunities/archive-live", headers=HTMX)
-    earlier.refresh_from_db()
-
-    assert earlier.archived_at == dt.datetime(2025, 12, 1, tzinfo=dt.UTC)
-
-
-@pytest.mark.usefixtures("opportunity")
-def test_nothing_is_deleted_by_archiving(client: Client) -> None:
-    """All three archive actions are reversible because nothing is removed (§6.5)."""
-    client.post("/opportunities/archive-live", headers=HTMX)
-
-    assert Opportunity.objects.count() == 1
-
-
 # --- Without the script ----------------------------------------------------
 
 
@@ -367,7 +329,7 @@ def test_a_get_cannot_mutate(client: Client, opportunity: Opportunity) -> None:
     """The mutating routes refuse anything but POST."""
     assert client.get(f"/opportunities/{opportunity.pk}/delete").status_code == 405
     assert client.get(f"/opportunities/{opportunity.pk}/archive").status_code == 405
-    assert client.get("/opportunities/archive-live").status_code == 405
+    assert client.get("/opportunities/bulk").status_code == 405
 
 
 @pytest.mark.usefixtures("db")
@@ -418,13 +380,3 @@ def test_deleting_asks_first(client: Client) -> None:
     body = client.get("/").content.decode()
 
     assert "hx-confirm" in body
-
-
-@pytest.mark.usefixtures("opportunity")
-def test_bulk_archive_confirms_with_its_count(client: Client, company: Company) -> None:
-    """Archiving everything live touches every row at once, so it says how many (§6.5)."""
-    Opportunity.objects.create(company=company, title="Other", date=dt.date(2026, 1, 6))
-
-    body = client.get("/").content.decode()
-
-    assert "Archive all 2" in body

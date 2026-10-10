@@ -1,0 +1,18 @@
+{# Tick rows, pick an action, go (plan 006). A plain form, so it works without #}
+{# the script; the checkboxes live in the rows and point here with `form=`. #}
+{# Without the script the select and button are enabled and the toggle is #}
+{# hidden; with it, they wait for a tick. `view` says which page to land on. #}
+<form class="bulk" id="bulk-form" action="/opportunities/bulk" method="post"
+      hx-post="/opportunities/bulk" hx-target="#board" hx-swap="outerHTML">
+  {% csrf_token %}
+  <input type="hidden" name="view" value="{{ mode }}">
+  <button class="button" type="button" data-select-all hidden>Select all / none</button>
+  <select class="button" name="action" aria-label="Action" data-bulk-action>
+    {% if mode == "archive" %}
+      <option value="unarchive">Unarchive</option>
+    {% else %}
+      <option value="archive">Archive</option>
+    {% endif %}
+  </select>
+  <button class="button button--small" type="submit" data-bulk-go>Go</button>
+</form>

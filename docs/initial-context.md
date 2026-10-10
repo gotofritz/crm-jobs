@@ -247,8 +247,15 @@ where it ranks fails loudly.
 ### The board
 
 `GET /` is the whole application. It renders one row per live opportunity in
-`in_board_order()`, with the archived count in the header and nothing else about
-the archive — not seeing archived rows is the point of archiving (plan 001 §6.5).
+`in_board_order()`. The header counts link to `GET /archive/`, the same board
+showing archived rows in `in_archive_order()` (plan 006); each page links to the
+other. Both carry a bulk bar — tick rows, pick `archive` or `unarchive`, go —
+which posts to `/opportunities/bulk` (`ids`, `action`, `view`). The action is
+whitelisted and only touches rows on the side it names, so a stale page cannot
+re-stamp an old burst. The row checkboxes sit in the rows and point at the
+header form with `form="bulk-form"`; `board.js` enables the bar only while a
+box is ticked, and without it the bar still submits. Not seeing archived rows
+on the main board is still the point of archiving (plan 001 §6.5).
 
 ```
 ---------------------------------------------------
@@ -398,8 +405,9 @@ was the only thing a spreadsheet could offer. Nothing here needs one.
 | POST | `/steps/<id>/delete` | row, or the board if the order changed |
 | POST | `/notes/<id>/delete` | row |
 | POST | `/opportunities/<id>/archive` | empty, swaps the row out |
-| POST | `/opportunities/<id>/unarchive` | full board |
-| POST | `/opportunities/archive-live` | full board, now empty |
+| POST | `/opportunities/<id>/unarchive` | full board; empty from the archive page |
+| POST | `/opportunities/bulk` | full board, in the mode `view` names |
+| GET | `/archive/` | the board showing archived rows |
 
 `<kind>` is `opportunities`, `steps` or `notes`. `GET` and `POST` share a URL in
 both editing shapes, because they are the same thing seen twice: what the `GET`

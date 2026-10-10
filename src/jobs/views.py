@@ -80,11 +80,25 @@ def _datalists(form: Any) -> dict[str, list[str]]:
     return {name: _names(SUGGESTIONS[name]) for name in sorted(wanted)}
 
 
-def _counts() -> dict[str, int]:
+ARCHIVE_URL = "/archive/"
+
+
+def _mode_of(request: HtmxHttpRequest) -> str:
+    """Which page a request came from: `"archive"` or `"board"` (plan 006).
+
+    An out-of-band fragment has no other way to know whose header it is
+    replacing, so it reads the page the htmx request was made from.
+    """
+    path = request.htmx.current_url_abs_path or ""
+    return "archive" if path.startswith(ARCHIVE_URL) else "board"
+
+
+def _counts(request: HtmxHttpRequest) -> dict[str, Any]:
     """What the header prints: how much is live, and how much is put away (§6.5)."""
     return {
         "live_count": Opportunity.objects.live().count(),
         "archived_count": Opportunity.objects.archived().count(),
+        "mode": _mode_of(request),
     }
 
 
@@ -97,20 +111,27 @@ def _order_of_the_board() -> list[int]:
     return [row.pk for row in Opportunity.objects.live().in_board_order()]
 
 
-def _board_context(*, new_pk: int | None = None) -> dict[str, Any]:
+def _board_context(*, new_pk: int | None = None, mode: str = "board") -> dict[str, Any]:
     """Everything the board template reads.
 
     `live_count` is the length of the list already in hand, not a second
     `COUNT(*)`: the board costs a fixed number of queries however many rows it
-    has, and that is a property the suite asserts.
+    has, and that is a property the suite asserts. The archive page does the
+    same with `archived_count`. `mode` is `"board"` or `"archive"` (plan 006).
     """
-    live = Opportunity.objects.live().in_board_order()
-    return {
-        "opportunities": live,
-        "new_pk": new_pk,
-        "live_count": len(live),
-        "archived_count": Opportunity.objects.archived().count(),
-    }
+    if mode == "archive":
+        rows = list(Opportunity.objects.archived().in_archive_order())
+        counts = {
+            "live_count": Opportunity.objects.live().count(),
+            "archived_count": len(rows),
+        }
+    else:
+        rows = Opportunity.objects.live().in_board_order()
+        counts = {
+            "live_count": len(rows),
+            "archived_count": Opportunity.objects.archived().count(),
+        }
+    return {"opportunities": rows, "new_pk": new_pk, "mode": mode} | counts
 
 
 def _board_url(new_pk: int | None) -> str:
@@ -118,9 +139,11 @@ def _board_url(new_pk: int | None) -> str:
     return "/" if new_pk is None else f"/?new={new_pk}"
 
 
-def _board_swap(request: HtmxHttpRequest, *, new_pk: int | None = None) -> HttpResponse:
+def _board_swap(
+    request: HtmxHttpRequest, *, new_pk: int | None = None, mode: str = "board"
+) -> HttpResponse:
     """Re-render the whole board, retargeted off whichever row was clicked."""
-    response = render(request, "jobs/_board_swap.html", _board_context(new_pk=new_pk))
+    response = render(request, "jobs/_board_swap.html", _board_context(new_pk=new_pk, mode=mode))
     response["HX-Retarget"] = "#board"
     response["HX-Reswap"] = "outerHTML"
     return response
@@ -129,7 +152,9 @@ def _board_swap(request: HtmxHttpRequest, *, new_pk: int | None = None) -> HttpR
 def _row_swap(request: HtmxHttpRequest, opportunity: Opportunity, **extra: Any) -> HttpResponse:
     """Re-render one row, which is what `hx-target="#opportunity-<id>"` expects (§7)."""
     fresh = Opportunity.objects.filter(pk=opportunity.pk).in_board_order()[0]
-    response = render(request, "jobs/_row_swap.html", {"opportunity": fresh} | extra | _counts())
+    response = render(
+        request, "jobs/_row_swap.html", {"opportunity": fresh} | extra | _counts(request)
+    )
     # The click that asked for this may have come from a blank card inside the
     # row, so the row says where it goes rather than trusting the target.
     response["HX-Retarget"] = f"#opportunity-{fresh.pk}"
@@ -143,7 +168,7 @@ def _row_gone(request: HtmxHttpRequest) -> HttpResponse:
     The body holds the out-of-band extras only, so htmx has nothing left for the
     swap itself and takes the row out.
     """
-    return render(request, EXTRAS, _counts())
+    return render(request, EXTRAS, _counts(request))
 
 
 def _after_change(
@@ -187,14 +212,20 @@ def new_cancel(_request: HtmxHttpRequest) -> HttpResponse:
 def board(request: HtmxHttpRequest) -> HttpResponse:
     """The whole app: one row per live opportunity, in §4.5 order (§7).
 
-    Archived rows are not reachable from here beyond their count — not seeing
-    them is the point of archiving (§6.5). `?new=<id>` marks a row the previous
+    Archived rows are not shown here, only counted, with a link to `/archive/`
+    (plan 006) — not seeing them is the point of archiving (§6.5). `?new=<id>` marks a row the previous
     request created, so the highlight survives a scriptless page load (§6.6).
     """
     raw = request.GET.get("new", "")
     return render(
         request, "jobs/board.html", _board_context(new_pk=int(raw) if raw.isdigit() else None)
     )
+
+
+@require_GET
+def archive_board(request: HtmxHttpRequest) -> HttpResponse:
+    """The board again, showing what has been put away, newest first (plan 006)."""
+    return render(request, "jobs/board.html", _board_context(mode="archive"))
 
 
 # --- Opportunities ---------------------------------------------------------
@@ -243,23 +274,44 @@ def opportunity_unarchive(request: HtmxHttpRequest, pk: int) -> HttpResponse:
     """Clear the timestamp and the row is live again (§6.5).
 
     The board re-renders rather than the row: the row is not on the page to be
-    swapped, because the board shows live opportunities only.
+    swapped, because the board shows live opportunities only. From the archive
+    page the row is simply taken out (plan 006).
     """
     opportunity = get_object_or_404(Opportunity, pk=pk)
     opportunity.archived_at = None
     opportunity.save(update_fields=["archived_at"])
-    return _board_swap(request) if request.htmx else redirect("/")
+    if not request.htmx:
+        return redirect("/")
+    if _mode_of(request) == "archive":
+        return _row_gone(request)
+    return _board_swap(request)
+
+
+# The bulk bar's whole vocabulary. Each action names the side it applies to, so
+# a stale page can neither re-stamp an old burst nor "unarchive" a live row.
+BULK_ACTIONS = {"archive": "live", "unarchive": "archived"}
 
 
 @require_POST
-def archive_live(request: HtmxHttpRequest) -> HttpResponse:
-    """The "I got a job" action, at the end of a burst (§6.5).
+def opportunity_bulk(request: HtmxHttpRequest) -> HttpResponse:
+    """Archive or unarchive the ticked rows (plan 006).
 
-    Already-archived rows keep the timestamp that says which burst they were,
-    so only the live ones are touched.
+    Replaces "archive everything live": select all, then archive, is the same
+    thing. Already-archived rows keep the timestamp that says which burst they
+    were, so only live ones are stamped.
     """
-    Opportunity.objects.live().update(archived_at=timezone.now())
-    return _board_swap(request) if request.htmx else redirect("/")
+    action = request.POST.get("action", "")
+    if action not in BULK_ACTIONS:
+        return HttpResponse(status=400)
+
+    ids = [int(raw) for raw in request.POST.getlist("ids") if raw.isdigit()]
+    scope = getattr(Opportunity.objects, BULK_ACTIONS[action])().filter(pk__in=ids)
+    scope.update(archived_at=timezone.now() if action == "archive" else None)
+
+    mode = "archive" if request.POST.get("view") == "archive" else "board"
+    if not request.htmx:
+        return redirect(ARCHIVE_URL if mode == "archive" else "/")
+    return _board_swap(request, mode=mode)
 
 
 # --- Notes -----------------------------------------------------------------
