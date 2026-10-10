@@ -66,7 +66,7 @@ def test_the_archive_is_newest_archived_first(client: Client, company: Company) 
 
 @pytest.mark.usefixtures("opportunity", "archived")
 def test_the_archive_heading_links_back_to_the_board(client: Client) -> None:
-    """ "Archive, Y archived, X live", with "X live" a link."""
+    """The heading reads Archive, Y archived, X live, with X live a link."""
     body = client.get("/archive/").content.decode()
 
     assert "Archive" in body
@@ -76,7 +76,7 @@ def test_the_archive_heading_links_back_to_the_board(client: Client) -> None:
 
 @pytest.mark.usefixtures("opportunity", "archived")
 def test_the_board_counts_link_to_the_archive(client: Client) -> None:
-    """ "Y archived" is the way in."""
+    """The archived count is the way in."""
     body = client.get("/").content.decode()
 
     assert '<a href="/archive/">1 archived</a>' in body
@@ -252,3 +252,27 @@ def test_bulk_never_deletes(client: Client, opportunity: Opportunity) -> None:
     client.post("/opportunities/bulk", {"action": "archive", "ids": [opportunity.pk]})
 
     assert Opportunity.objects.count() == 1
+
+
+# --- Stylesheet and script -------------------------------------------------
+
+
+def test_the_primary_button_is_a_solid_fill_with_light_text(compiled_css: str) -> None:
+    """New opportunity stands out; the compiled sheet is what is served."""
+    assert ".button--primary" in compiled_css
+    assert "--primary-bg" in compiled_css
+
+
+def test_the_script_drives_the_bulk_bar(board_js: str) -> None:
+    """Without it the bar still submits; with it the bar waits for a tick."""
+    for hook in ("data-select-all", "data-select", "data-bulk-action", "data-bulk-go"):
+        assert hook in board_js
+
+
+@pytest.mark.usefixtures("opportunity")
+def test_without_the_script_the_bar_is_usable(client: Client) -> None:
+    """The toggle is hidden, the select and button are not disabled."""
+    body = client.get("/").content.decode()
+
+    assert "data-select-all hidden" in body
+    assert "disabled" not in body.split('id="bulk-form"')[1].split("</form>")[0]

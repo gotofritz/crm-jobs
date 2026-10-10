@@ -25,6 +25,11 @@
  * offer one. Nothing else about editing needs it — the input is a real form and
  * posts on its own.
  *
+ * It also runs the bulk bar (plan 006). The server renders the bar usable —
+ * the select and the button enabled, the all/none toggle hidden — so a browser
+ * without the script can still tick rows and submit. With it, the toggle
+ * appears, and the select and button wait for a tick.
+ *
  * Since phase 4 it has two jobs more, both about rows htmx has just swapped in.
  * A swapped row has never been through `apply`, so its arrows, notes clamp and
  * description toggle would be the only ones on the page that did not work; and
@@ -290,16 +295,54 @@
       return;
     }
 
+    if (event.target.closest("[data-select-all]")) {
+      toggleAll();
+      return;
+    }
+
     const arrow = event.target.closest("[data-steps-prev], [data-steps-next]");
     if (arrow) {
       move(arrow.closest("[data-steps]"), arrow.hasAttribute("data-steps-prev") ? -1 : 1);
     }
   }
 
+  /* Enable the bulk bar only while something is ticked, and offer the toggle.
+   *
+   * Reads the boxes each time rather than keeping a count: rows come and go as
+   * htmx swaps the board, and a count would go stale with them. */
+  function syncBulk() {
+    const bar = document.getElementById("bulk-form");
+    if (!bar) {
+      return;
+    }
+
+    const ticked = Array.from(document.querySelectorAll("[data-select]")).some(
+      (box) => box.checked,
+    );
+    bar.querySelector("[data-bulk-action]").disabled = !ticked;
+    bar.querySelector("[data-bulk-go]").disabled = !ticked;
+    bar.querySelector("[data-select-all]").hidden = false;
+  }
+
+  /* All ticked becomes none; anything less becomes all. */
+  function toggleAll() {
+    const boxes = Array.from(document.querySelectorAll("[data-select]"));
+    const everyone = boxes.every((box) => box.checked);
+    boxes.forEach((box) => {
+      box.checked = !everyone;
+    });
+    syncBulk();
+  }
+
   root.classList.add("has-js");
   // Delegated, so rows swapped in later are wired without re-running any of this.
   document.addEventListener("click", onClick);
   document.addEventListener("keydown", onKeydown);
+  document.addEventListener("change", (event) => {
+    if (event.target.matches("[data-select]")) {
+      syncBulk();
+    }
+  });
   // Neither `scroll` nor `toggle` bubbles, so these listen on the way down.
   document.addEventListener("scroll", onScroll, true);
   document.addEventListener("toggle", onDetails, true);
@@ -309,11 +352,13 @@
   // fragment tracked.
   document.addEventListener("htmx:afterSwap", () => {
     apply();
+    syncBulk();
     announceNewRow();
   });
 
   function start() {
     apply();
+    syncBulk();
     // The scriptless path lands here: the server redirected to `/?new=<id>` and
     // the board rendered the mark into the page (§6.6).
     announceNewRow();

@@ -16,6 +16,9 @@
      palette in §6.4 owns those, and a new row is not in one. */
   --new-row-tint: #fff4cd;
   --new-row-edge: #e0a800;
+  /* The one solid fill on the page, so the way to add a row is found first. */
+  --primary-bg: #1d4ed8;
+  --primary-fg: #ffffff;
 }
 
 /* The controls a row carries: edit, add, archive, delete. Small, quiet, and
@@ -60,7 +63,9 @@
 
 .board__actions {
   display: flex;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
   margin-left: auto;
 }
 
@@ -73,6 +78,38 @@
   font: inherit;
   font-size: 0.85rem;
   text-decoration: none;
+  cursor: pointer;
+}
+
+/* The one button that stands out: solid fill, light text. Dark enough for the
+   text to read, so the pair is chosen together. */
+.button--primary {
+  border-color: var(--primary-bg);
+  background: var(--primary-bg);
+  color: var(--primary-fg);
+}
+
+.button--small {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The bulk bar: toggle, action, go. The select is a `.button`, so it looks like
+   its neighbours. It is one form wrapper, not a box of its own. */
+.bulk {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.card__select {
+  margin: 0 0.4rem 0 0;
+  vertical-align: middle;
   cursor: pointer;
 }
 

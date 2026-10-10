@@ -1,6 +1,6 @@
 # 006 — A visible archive
 
-Status: in progress
+Status: implemented
 Date: 2026-10-09
 
 Archived rows are reachable only through the admin (plan 001 §6.5). This plan
