@@ -51,6 +51,7 @@ omit = [
 include = "Taskfile.toml"
 
 [tool.uv]
+exclude-newer = "7 days"
 exclude-newer-package = { "ruff" = false }
 
 [tool.pytest.ini_options] # https://docs.pytest.org/en/latest/reference/reference.html#ini-options-ref

@@ -30,15 +30,20 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync
+        # --locked fails on a stale uv.lock instead of rewriting it, so a
+        # lockfile problem breaks the PR rather than the badge push on main
+        run: uv sync --locked
 
       - name: Run QA checks
         run: uv run poe qa
 
+      - name: Check worktree is clean
+        # the badge push switches branches; catch a dirty tree on PRs too
+        run: git diff --exit-code
+
       - name: Generate coverage badge
-        if: github.ref == 'refs/heads/main'
         run: |
-          pip install coverage-badge
+          uv tool install coverage-badge --with "setuptools<81"
           coverage-badge -f -o coverage.svg
 
       - name: Push coverage badge
