@@ -43,7 +43,7 @@ jobs:
 
       - name: Generate coverage badge
         run: |
-          uv tool install coverage-badge
+          uv tool install coverage-badge --with "setuptools<81"
           coverage-badge -f -o coverage.svg
 
       - name: Push coverage badge
