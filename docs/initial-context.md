@@ -382,6 +382,9 @@ Three things happen on the card rather than beside it:
 - **Creating.** A blank card in edit mode: a row at the top of the board, a step
   at the near end of the track, a note at the top of the list. It saves with one
   submit rather than on blur, because there is no row yet to save a field into.
+  A new step on an opportunity that already has one also carries a "Previous
+  step" pulldown (`StepForm.previous_state`, seeded with the `top_step`'s state);
+  `save` applies it to that step only if it differs.
 
 Plan 001 §7 described a drawer, and that came from the GAS app, where a sidebar
 was the only thing a spreadsheet could offer. Nothing here needs one.
