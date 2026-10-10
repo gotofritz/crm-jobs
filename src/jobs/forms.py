@@ -18,7 +18,8 @@ from typing import Any, ClassVar
 from django import forms
 from django.db import DEFAULT_DB_ALIAS, models
 
-from jobs.models import Company, Contact, Note, Opportunity, Sector, Source, Step
+from jobs.models import Company, Contact, Note, Opportunity, Sector, Source, State, Step
+from jobs.ordering import top_step
 
 
 # `LANGUAGE_CODE` is `en-gb`, so Django localises a date on the way out as
@@ -347,6 +348,15 @@ class StepForm(FieldScoped):
         self.opportunity = opportunity
         if self.instance.pk is not None:
             self.initial.setdefault("contacts", self.instance.contact_names)
+        elif self.only is None and (previous := top_step(opportunity.steps.all())) is not None:
+            # A new step may also move the one before it on: the leftmost card,
+            # which is `top_step`. Not offered on an edit, nor to a first step.
+            self.fields["previous_state"] = forms.ModelChoiceField(
+                queryset=State.objects.all(),
+                required=False,
+                initial=previous.state,
+                label="Previous step",
+            )
 
     def save(self, commit: bool = True) -> Step:
         """Save against the opportunity, resolving each typed contact name (§6.9)."""
@@ -354,7 +364,13 @@ class StepForm(FieldScoped):
         step.opportunity = self.opportunity
         if not commit:
             return step
+        # Found before the new step exists, or it could be the one it finds.
+        previous = top_step(self.opportunity.steps.all()) if self.edits("previous_state") else None
         step.save()
+        chosen = self.cleaned_data.get("previous_state")
+        if previous is not None and chosen is not None and chosen != previous.state:
+            previous.state = chosen
+            previous.save(update_fields=["state"])
         # An edit that never sent the contacts must not empty them.
         if self.edits("contacts"):
             people = [by_name(Contact, name) for name in names_of(self.cleaned_data["contacts"])]
