@@ -4,6 +4,6 @@
   {% for opportunity in opportunities %}
     {% include "jobs/_opportunity_row.html" %}
   {% empty %}
-    <p class="board__empty">Nothing live.</p>
+    <p class="board__empty">{% if mode == "archive" %}Nothing archived.{% else %}Nothing live.{% endif %}</p>
   {% endfor %}
 </main>

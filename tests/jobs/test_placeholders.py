@@ -37,13 +37,13 @@ def step(opportunity: Opportunity) -> Step:
 
 
 def boxes(html: str) -> dict[str, str]:
-    """Every text box on the form, by field name, as rendered."""
+    """Every text box on the form, by field name, as rendered (ticks are not text)."""
     found = re.findall(r"<(?:input|textarea)\b[^>]*>", html)
     named = {}
     for tag in found:
         name = re.search(r'name="([^"]+)"', tag)
         kind = re.search(r'type="([^"]+)"', tag)
-        if name and kind and kind[1] in {"hidden", "date", "time"}:
+        if name and kind and kind[1] in {"hidden", "date", "time", "checkbox"}:
             continue
         if name:
             named[name[1]] = tag

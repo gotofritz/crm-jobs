@@ -90,7 +90,8 @@ def test_the_board_renders_the_demo(demo_board: list[Opportunity]) -> None:
     for opportunity in demo_board:
         assert opportunity.title in html
 
-    assert f"{len(demo_board)} live, 1 archived" in html
+    assert f"{len(demo_board)} live, " in html
+    assert ">1 archived</a>" in html
 
 
 @pytest.mark.usefixtures("db")

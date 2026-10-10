@@ -9,8 +9,8 @@ field is named in the URL and checked against the whitelist in `forms.EDITABLE`.
 The drawer survives for creating only, because a row that does not exist yet
 has nothing to click on.
 
-`archive-live` is matched before the `<int:pk>` routes by virtue of not being an
-integer, so the two cannot collide.
+`opportunities/bulk` is matched before the `<int:pk>` routes by virtue of not
+being an integer, so the two cannot collide.
 """
 
 from django.urls import path
@@ -19,6 +19,7 @@ from jobs import views
 
 urlpatterns = [
     path("", views.board, name="board"),
+    path("archive/", views.archive_board, name="archive"),
     path("healthz", views.healthz, name="healthz"),
     # Creating — the three routes the drawer is still for
     path("new/cancel", views.new_cancel, name="new-cancel"),
@@ -37,7 +38,7 @@ urlpatterns = [
     path("notes/<int:pk>/delete", views.note_delete, name="note-delete"),
     path("steps/<int:pk>/delete", views.step_delete, name="step-delete"),
     # The archive (§6.5)
-    path("opportunities/archive-live", views.archive_live, name="archive-live"),
+    path("opportunities/bulk", views.opportunity_bulk, name="opportunity-bulk"),
     path("opportunities/<int:pk>/archive", views.opportunity_archive, name="opportunity-archive"),
     path(
         "opportunities/<int:pk>/unarchive",

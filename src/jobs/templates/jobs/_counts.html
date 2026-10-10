@@ -1,4 +1,11 @@
-{# The header's tally. Archived rows are not reachable from the board beyond #}
-{# this count (§6.5). Rendered out of band after a mutation, because an archive #}
-{# changes it without touching the row that was clicked. #}
-<p class="board__counts" id="board-counts"{% if oob %} hx-swap-oob="true"{% endif %}>{{ live_count }} live, {{ archived_count }} archived</p>
+{# The header's tally, and the way between the board and the archive (plan 006). #}
+{# Each page links to the other count. Rendered out of band after a mutation, #}
+{# because an archive changes it without touching the row that was clicked; #}
+{# `mode` says whose header it is. #}
+<p class="board__counts" id="board-counts"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% if mode == "archive" %}
+    {{ archived_count }} archived, <a href="/">{{ live_count }} live</a>
+  {% else %}
+    {{ live_count }} live, <a href="/archive/">{{ archived_count }} archived</a>
+  {% endif %}
+</p>

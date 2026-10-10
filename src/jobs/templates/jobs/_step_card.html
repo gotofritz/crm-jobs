@@ -15,8 +15,8 @@
 
       <footer class="card__controls">
         <button class="control" type="submit">Done</button>
-        <a class="control" href="/"
-           hx-get="/" hx-select="#opportunity-{{ step.opportunity_id }}"
+        <a class="control" href="{% if step.opportunity.archived_at %}/archive/{% else %}/{% endif %}"
+           hx-get="{% if step.opportunity.archived_at %}/archive/{% else %}/{% endif %}" hx-select="#opportunity-{{ step.opportunity_id }}"
            hx-target="#opportunity-{{ step.opportunity_id }}" hx-swap="outerHTML">Cancel</a>
       </footer>
     </form>

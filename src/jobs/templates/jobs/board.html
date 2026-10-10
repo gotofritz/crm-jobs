@@ -2,25 +2,20 @@
 
 {% block body %}
   <header class="board__header">
-    <h1 class="board__title">Opportunities</h1>
+    <h1 class="board__title">{% if mode == "archive" %}Archive{% else %}Opportunities{% endif %}</h1>
     {% include "jobs/_counts.html" %}
 
-    {# The two board-wide actions. Both work without the script: the forms POST #}
+    {# The board-wide actions. Both work without the script: the forms POST #}
     {# and the server redirects back here (§7). #}
     <div class="board__actions">
-      {# A blank row at the top of the board, already in edit mode. #}
-      <a class="button" href="/opportunities/new"
-         hx-get="/opportunities/new" hx-target="#board" hx-swap="afterbegin">New opportunity</a>
+      {% if opportunities %}
+        {% include "jobs/_bulk_bar.html" %}
+      {% endif %}
 
-      {% if live_count %}
-        {# Bulk archive touches every live row at once, so it confirms with the #}
-        {# count in it — the one archive action that does (§6.5). #}
-        <form action="/opportunities/archive-live" method="post"
-              hx-post="/opportunities/archive-live"
-              hx-confirm="Archive all {{ live_count }} live opportunities?">
-          {% csrf_token %}
-          <button class="button" type="submit">Archive all {{ live_count }}</button>
-        </form>
+      {% if mode != "archive" %}
+        {# A blank row at the top of the board, already in edit mode. #}
+        <a class="button button--primary" href="/opportunities/new"
+           hx-get="/opportunities/new" hx-target="#board" hx-swap="afterbegin">New opportunity</a>
       {% endif %}
     </div>
   </header>
