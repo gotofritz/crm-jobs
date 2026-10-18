@@ -9,6 +9,7 @@ Self-hosted job application tracker. Django + HTMX, SQLite, no SPA.
 - [Overview](#overview)
 - [User Guide](#user-guide)
 - [Installation](#installation)
+- [Repository settings](#repository-settings)
 - [Development](#development)
 - [License](#license)
 
@@ -87,6 +88,25 @@ environment — see the table in
 `DJANGO_SECRET_KEY` is required as soon as `DJANGO_DEBUG=false`: the process
 refuses to start without it, so the marked-insecure development key in this
 repository cannot reach production.
+
+## Repository settings
+
+`infra/` holds Terraform for the GitHub repo settings (merge options and the
+`protect-main` ruleset: PR required, `qa (3.14)` and `Conventional Commit title` checks must pass). It is
+applied by hand, never by CI. Needs Terraform >= 1.6 and a token with repo
+admin rights in `GITHUB_TOKEN`.
+
+```bash
+cd infra
+terraform init
+terraform import github_repository.crm_jobs crm-jobs  # first run only
+terraform plan   # review: this is a diff against the live repo
+terraform apply
+```
+
+State is local and gitignored. Commit `.terraform.lock.hcl` after the first
+`init`. After any change that renames a check job in `ci.yml`, update
+`required_check` to match, or merges will block.
 
 ## Development
 
