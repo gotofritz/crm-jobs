@@ -90,6 +90,14 @@
   }
 
   function syncNotes(block) {
+    // A blank note is being written: its Save and Cancel sit below the
+    // textarea, which alone can fill the clamp, so nothing is held back.
+    if (block.querySelector(".notes__item--new")) {
+      setNotes(block, true);
+      block.querySelector("[data-notes-toggle]").hidden = true;
+      return;
+    }
+
     setNotes(block, false);
     const spare = spareNotes(block);
 
