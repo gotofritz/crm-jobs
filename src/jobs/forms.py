@@ -17,6 +17,7 @@ from typing import Any, ClassVar
 
 from django import forms
 from django.db import DEFAULT_DB_ALIAS, models
+from django.utils import timezone
 
 from jobs.models import Company, Contact, Note, Opportunity, Sector, Source, State, Step
 from jobs.ordering import top_step
@@ -246,6 +247,8 @@ class OpportunityForm(FieldScoped):
         self.using = using
         opportunity = self.instance
         if opportunity.pk is None:
+            # A new one is dated today unless told otherwise (issue 27).
+            self.initial.setdefault("date", timezone.localdate())
             return
         # Which company the boxes below were filled from, so `_resolve_company`
         # can tell an emptied field from one that was never filled in.
@@ -348,7 +351,14 @@ class StepForm(FieldScoped):
         self.opportunity = opportunity
         if self.instance.pk is not None:
             self.initial.setdefault("contacts", self.instance.contact_names)
-        elif self.only is None and (previous := top_step(opportunity.steps.all())) is not None:
+        else:
+            # A new one is dated today unless told otherwise (issue 27).
+            self.initial.setdefault("date", timezone.localdate())
+        if (
+            self.instance.pk is None
+            and self.only is None
+            and (previous := top_step(opportunity.steps.all())) is not None
+        ):
             # A new step may also move the one before it on: the leftmost card,
             # which is `top_step`. Not offered on an edit, nor to a first step.
             self.fields["previous_state"] = forms.ModelChoiceField(
