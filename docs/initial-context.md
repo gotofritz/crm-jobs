@@ -330,7 +330,9 @@ order, newest at the top, a new one going in at that end. The stylesheet clamps 
 four lines, whichever bites first — `nth-child(n + 3)` for the one limit and a
 `max-height` for the other, since a single long note reaches four lines before a
 third note does. Both are scoped to `.has-js`, because the toggle that puts the
-rest back is the script's.
+rest back is the script's. The clamp stands aside while a blank note is open
+(`.notes__item--new`): its Save and Cancel sit under the textarea, which alone
+fills the clamp, and plan 008 found them cut off (#26).
 
 On a phone the row stacks instead:
 
