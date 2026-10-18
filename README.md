@@ -25,7 +25,7 @@ Visit `/` to see your live opportunities. Each row shows one job:
 - **Left card**: company, position, notes
 - **Right cards**: steps (newest first), each with date, status, and details
 
-Create a new opportunity with the form. Add steps to track progress. Mark status to sort on the board. A new step also has a "Previous step" pulldown, to settle the state of the step before it in the same save.
+Create a new opportunity with the form. Add steps to track progress. New opportunities and steps are dated today by default. Mark status to sort on the board. A new step also has a "Previous step" pulldown, to settle the state of the step before it in the same save.
 
 Archive opportunities when done — they move out of sight but stay searchable later.
 

@@ -386,7 +386,9 @@ Three things happen on the card rather than beside it:
   submit rather than on blur, because there is no row yet to save a field into.
   A new step on an opportunity that already has one also carries a "Previous
   step" pulldown (`StepForm.previous_state`, seeded with the `top_step`'s state);
-  `save` applies it to that step only if it differs.
+  `save` applies it to that step only if it differs. A new opportunity or step
+  also opens with today's date (`OpportunityForm`/`StepForm` seed
+  `initial["date"]` with `timezone.localdate()`; plan 009).
 
 Plan 001 §7 described a drawer, and that came from the GAS app, where a sidebar
 was the only thing a spreadsheet could offer. Nothing here needs one.
