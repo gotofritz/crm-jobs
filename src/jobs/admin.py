@@ -132,5 +132,5 @@ class NoteAdmin(admin.ModelAdmin):
 class LeadAdmin(admin.ModelAdmin):
     """Places to look for future opportunities (plan 010)."""
 
-    list_display = ("url",)
-    search_fields = ("url", "notes")
+    list_display = ("name", "url")
+    search_fields = ("name", "url", "notes")

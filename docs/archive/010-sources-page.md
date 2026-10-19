@@ -8,7 +8,7 @@ for future opportunities.
 
 ## 1. Goal
 
-- A page at `/sources/` listing places to look: a link and free-text notes each
+- A page at `/sources/` listing places to look: a name, a link and free-text notes each
 - Create, update and delete, as plain forms that work without the script
 - Reachable from the board's header, with a link back
 
@@ -20,7 +20,7 @@ for future opportunities.
 
 ## 3. Design
 
-- New model `Lead` (`url`, `notes`), newest first. Named apart from `Source` so
+- New model `Lead` (`name`, `url`, `notes`; the name is an optional label), newest first. Named apart from `Source` so
   the two ideas do not blur
 - `LeadForm` validates the link; a bad one re-renders the page with the error
   and keeps what was typed

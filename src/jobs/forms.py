@@ -425,13 +425,13 @@ class JobDescriptionForm(forms.ModelForm):
 
 
 class LeadForm(forms.ModelForm):
-    """A link and some notes — the whole of the sources page (plan 010)."""
+    """A label, a link and some notes — the whole of the sources page (plan 010)."""
 
     class Meta:
         """Both fields, as typed."""
 
         model = Lead
-        fields = ("url", "notes")
+        fields = ("name", "url", "notes")
         widgets: ClassVar[dict[str, forms.Widget]] = {
             "notes": forms.Textarea(attrs={"rows": 3}),
         }

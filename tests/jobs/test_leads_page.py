@@ -20,12 +20,20 @@ def client() -> Client:
 @pytest.fixture
 def lead(db: None) -> Lead:  # noqa: ARG001
     """A source already on the page."""
-    return Lead.objects.create(url="https://example.com/jobs", notes="Check Mondays")
+    return Lead.objects.create(
+        name="Example board", url="https://example.com/jobs", notes="Check Mondays"
+    )
 
 
-def test_str_is_the_link(lead: Lead) -> None:
-    """The admin and the shell name a lead by where it points."""
-    assert str(lead) == "https://example.com/jobs"
+def test_str_is_the_name(lead: Lead) -> None:
+    """The admin and the shell name a lead by its label."""
+    assert str(lead) == "Example board"
+
+
+@pytest.mark.usefixtures("db")
+def test_str_falls_back_to_the_link() -> None:
+    """An unlabelled lead is still nameable."""
+    assert str(Lead(url="https://example.com/jobs")) == "https://example.com/jobs"
 
 
 def test_the_page_lists_sources_and_offers_a_blank_form(client: Client, lead: Lead) -> None:
@@ -34,6 +42,7 @@ def test_the_page_lists_sources_and_offers_a_blank_form(client: Client, lead: Le
 
     assert response.status_code == 200
     body = response.content.decode()
+    assert "Example board" in body
     assert "https://example.com/jobs" in body
     assert "Check Mondays" in body
     assert reverse("lead-create") in body
@@ -62,21 +71,27 @@ def test_newest_source_first(client: Client) -> None:
 def test_create_saves_and_redirects_back(client: Client) -> None:
     """A valid post adds a row and returns to the page."""
     response = client.post(
-        reverse("lead-create"), {"url": "https://wellfound.com/jobs", "notes": "Remote only"}
+        reverse("lead-create"),
+        {"name": "Wellfound", "url": "https://wellfound.com/jobs", "notes": "Remote only"},
     )
 
     assert response.status_code == 302
     assert response["Location"] == reverse("leads")
     lead = Lead.objects.get()
-    assert (lead.url, lead.notes) == ("https://wellfound.com/jobs", "Remote only")
+    assert (lead.name, lead.url, lead.notes) == (
+        "Wellfound",
+        "https://wellfound.com/jobs",
+        "Remote only",
+    )
 
 
 @pytest.mark.usefixtures("db")
-def test_create_with_notes_left_blank(client: Client) -> None:
-    """Notes are optional."""
+def test_create_with_name_and_notes_left_blank(client: Client) -> None:
+    """Name and notes are optional."""
     client.post(reverse("lead-create"), {"url": "https://wellfound.com/jobs"})
 
-    assert Lead.objects.get().notes == ""
+    lead = Lead.objects.get()
+    assert (lead.name, lead.notes) == ("", "")
 
 
 @pytest.mark.parametrize("url", ["", "not a link"])
@@ -96,12 +111,16 @@ def test_update_changes_the_row(client: Client, lead: Lead) -> None:
     """Saving a row writes both fields."""
     response = client.post(
         reverse("lead-update", args=[lead.pk]),
-        {"url": "https://example.com/careers", "notes": "Moved"},
+        {"name": "Careers", "url": "https://example.com/careers", "notes": "Moved"},
     )
 
     assert response.status_code == 302
     lead.refresh_from_db()
-    assert (lead.url, lead.notes) == ("https://example.com/careers", "Moved")
+    assert (lead.name, lead.url, lead.notes) == (
+        "Careers",
+        "https://example.com/careers",
+        "Moved",
+    )
 
 
 def test_update_rejects_a_bad_link(client: Client, lead: Lead) -> None:
