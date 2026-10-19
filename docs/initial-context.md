@@ -127,7 +127,6 @@ assets/           hand-written css and the tailwind input, compiled from here
 static/           vendored htmx, compiled tailwind css
 deploy/           Caddyfile, systemd units, backup timer
 docs/             plans, archive, this file
-clasp/            retired Google Apps Script source, reference only
 ```
 
 This is the one deviation from the layout in plan 001 §5, which put `config/`
