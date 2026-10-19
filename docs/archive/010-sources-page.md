@@ -25,7 +25,9 @@ for future opportunities.
 - `LeadForm` validates the link; a bad one re-renders the page with the error
   and keeps what was typed
 - Routes: `sources/`, `sources/new`, `sources/<pk>/`, `sources/<pk>/delete`
-- Each row is its own form with Save and Delete (`formaction`) buttons
+- A row is read-only, so its link can be followed (new tab, `noopener`), with
+  Edit and Delete. Edit is `?edit=<pk>`: that row becomes a form with Save and
+  Cancel, Cancel being a link back. A rejected save reopens the same row
 - Styling in `assets/forms.css`; the templates carry class names only
 
 ## 4. Tests

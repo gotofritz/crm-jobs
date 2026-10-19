@@ -25,23 +25,58 @@ def lead(db: None) -> Lead:  # noqa: ARG001
     )
 
 
+def _has_update_form(body: str, lead: Lead) -> bool:
+    """Whether the page carries the edit form for `lead` (its URL is a prefix of delete's)."""
+    return f'action="{reverse("lead-update", args=[lead.pk])}"' in body
+
+
 def test_str_is_the_name(lead: Lead) -> None:
     """The admin and the shell name a lead by its label."""
     assert str(lead) == "Example board"
 
 
 def test_the_page_lists_sources_and_offers_a_blank_form(client: Client, lead: Lead) -> None:
-    """Existing sources come back as editable fields, with a form to add one."""
+    """Sources are shown read-only, each with Edit and Delete, plus a form to add one."""
     response = client.get(reverse("leads"))
 
     assert response.status_code == 200
     body = response.content.decode()
     assert "Example board" in body
-    assert "https://example.com/jobs" in body
     assert "Check Mondays" in body
     assert reverse("lead-create") in body
-    assert reverse("lead-update", args=[lead.pk]) in body
     assert reverse("lead-delete", args=[lead.pk]) in body
+    assert f"{reverse('leads')}?edit={lead.pk}" in body
+    assert not _has_update_form(body, lead)
+
+
+@pytest.mark.usefixtures("lead")
+def test_the_link_is_clickable(client: Client) -> None:
+    """Read-only, the link is an anchor that leaves the app safely."""
+    body = client.get(reverse("leads")).content.decode()
+
+    assert 'href="https://example.com/jobs"' in body
+    assert 'rel="noopener noreferrer"' in body
+
+
+def test_edit_opens_the_form_with_save_and_cancel(client: Client, lead: Lead) -> None:
+    """`?edit=<pk>` swaps that one row for its form; Cancel is a plain link back."""
+    other = Lead.objects.create(name="Other", url="https://other.example.com")
+
+    body = client.get(reverse("leads"), {"edit": lead.pk}).content.decode()
+
+    assert _has_update_form(body, lead)
+    assert "Cancel" in body
+    assert f'href="{reverse("leads")}"' in body
+    assert not _has_update_form(body, other)
+
+
+def test_edit_of_an_unknown_row_shows_the_plain_page(client: Client, lead: Lead) -> None:
+    """A stale or junk `edit` value is ignored."""
+    for value in ("999", "x"):
+        response = client.get(reverse("leads"), {"edit": value})
+
+        assert response.status_code == 200
+        assert not _has_update_form(response.content.decode(), lead)
 
 
 @pytest.mark.usefixtures("db")

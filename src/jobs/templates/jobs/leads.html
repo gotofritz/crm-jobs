@@ -1,7 +1,8 @@
 {% extends "jobs/base.html" %}
 
-{# Places to look for future opportunities (plan 010). Plain forms: every row #}
-{# saves and deletes with a POST and a redirect, so nothing here needs the script. #}
+{# Places to look for future opportunities (plan 010). A row is read-only, so its #}
+{# link can be followed, until Edit (`?edit=<pk>`) swaps it for a form. Saving and #}
+{# deleting are a POST and a redirect, so nothing here needs the script. #}
 {% block title %}Sources{% endblock %}
 
 {% block body %}
@@ -20,15 +21,27 @@
     </form>
 
     {% for lead, form in rows %}
-      <form class="lead" method="post" action="{% url 'lead-update' lead.pk %}">
-        {% csrf_token %}
-        {% include "jobs/_lead_fields.html" %}
-        <div class="card__controls">
-          <button class="button button--small" type="submit">Save</button>
-          <button class="button button--small button--danger" type="submit"
-                  formaction="{% url 'lead-delete' lead.pk %}" formnovalidate>Delete</button>
-        </div>
-      </form>
+      {% if form %}
+        <form class="lead" method="post" action="{% url 'lead-update' lead.pk %}">
+          {% csrf_token %}
+          {% include "jobs/_lead_fields.html" %}
+          <div class="card__controls">
+            <button class="button button--small button--primary" type="submit">Save</button>
+            <a class="button button--small" href="{% url 'leads' %}">Cancel</a>
+          </div>
+        </form>
+      {% else %}
+        <article class="lead">
+          <h2 class="lead__name">{{ lead.name }}</h2>
+          <p class="lead__url"><a href="{{ lead.url }}" target="_blank" rel="noopener noreferrer">{{ lead.url }}</a></p>
+          {% if lead.notes %}<p class="lead__notes">{{ lead.notes|linebreaksbr }}</p>{% endif %}
+          <form class="card__controls" method="post" action="{% url 'lead-delete' lead.pk %}">
+            {% csrf_token %}
+            <a class="button button--small" href="{% url 'leads' %}?edit={{ lead.pk }}">Edit</a>
+            <button class="button button--small button--danger" type="submit">Delete</button>
+          </form>
+        </article>
+      {% endif %}
     {% empty %}
       <p class="board__empty">No sources yet.</p>
     {% endfor %}

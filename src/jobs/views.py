@@ -560,9 +560,14 @@ def step_delete(request: HtmxHttpRequest, pk: int) -> HttpResponse:
 def _leads_page(
     request: HtmxHttpRequest, *, new_form: LeadForm | None = None, bad: LeadForm | None = None
 ) -> HttpResponse:
-    """The sources page. `bad` is a rejected edit, shown in place of its stored row."""
+    """The sources page. At most one row is open for editing: `bad` (a rejected edit) or `?edit=`.
+
+    Each row is paired with its form when open, `None` when read-only.
+    """
+    raw = request.GET.get("edit", "")
+    editing = bad.instance.pk if bad is not None else int(raw) if raw.isdigit() else None
     rows = [
-        (lead, bad if bad is not None and bad.instance.pk == lead.pk else LeadForm(instance=lead))
+        (lead, (bad or LeadForm(instance=lead)) if lead.pk == editing else None)
         for lead in Lead.objects.all()
     ]
     return render(request, "jobs/leads.html", {"new_form": new_form or LeadForm(), "rows": rows})
