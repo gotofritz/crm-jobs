@@ -20,6 +20,10 @@ from jobs import views
 urlpatterns = [
     path("", views.board, name="board"),
     path("archive/", views.archive_board, name="archive"),
+    path("sources/", views.leads, name="leads"),
+    path("sources/new", views.lead_create, name="lead-create"),
+    path("sources/<int:pk>/", views.lead_update, name="lead-update"),
+    path("sources/<int:pk>/delete", views.lead_delete, name="lead-delete"),
     path("healthz", views.healthz, name="healthz"),
     # Creating — the three routes the drawer is still for
     path("new/cancel", views.new_cancel, name="new-cancel"),

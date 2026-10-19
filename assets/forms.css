@@ -348,3 +348,40 @@
   box-shadow: none;
   transform: translateY(1px);
 }
+
+/* The sources page: a stack of small forms, each a card (plan 010). */
+.leads {
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-spacing);
+  max-width: 40rem;
+}
+
+.lead {
+  padding: 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--card-radius);
+  background: var(--summary-bg);
+}
+
+.lead__field {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.lead__label {
+  display: block;
+  color: var(--muted-fg);
+  font-size: 0.8rem;
+}
+
+.lead__field input,
+.lead__field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  font: inherit;
+}
+
+.button--danger {
+  color: var(--danger-fg);
+}

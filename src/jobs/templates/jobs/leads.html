@@ -1,0 +1,36 @@
+{% extends "jobs/base.html" %}
+
+{# Places to look for future opportunities (plan 010). Plain forms: every row #}
+{# saves and deletes with a POST and a redirect, so nothing here needs the script. #}
+{% block title %}Sources{% endblock %}
+
+{% block body %}
+  <header class="board__header">
+    <h1 class="board__title">Sources</h1>
+    <p class="board__counts"><a href="{% url 'board' %}">Opportunities</a></p>
+  </header>
+
+  <main class="leads">
+    <form class="lead lead--new" method="post" action="{% url 'lead-create' %}">
+      {% csrf_token %}
+      {% include "jobs/_lead_fields.html" with form=new_form %}
+      <div class="card__controls">
+        <button class="button button--primary" type="submit">Add source</button>
+      </div>
+    </form>
+
+    {% for lead, form in rows %}
+      <form class="lead" method="post" action="{% url 'lead-update' lead.pk %}">
+        {% csrf_token %}
+        {% include "jobs/_lead_fields.html" %}
+        <div class="card__controls">
+          <button class="button button--small" type="submit">Save</button>
+          <button class="button button--small button--danger" type="submit"
+                  formaction="{% url 'lead-delete' lead.pk %}" formnovalidate>Delete</button>
+        </div>
+      </form>
+    {% empty %}
+      <p class="board__empty">No sources yet.</p>
+    {% endfor %}
+  </main>
+{% endblock %}

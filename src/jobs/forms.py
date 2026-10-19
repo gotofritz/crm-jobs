@@ -19,7 +19,7 @@ from django import forms
 from django.db import DEFAULT_DB_ALIAS, models
 from django.utils import timezone
 
-from jobs.models import Company, Contact, Note, Opportunity, Sector, Source, State, Step
+from jobs.models import Company, Contact, Lead, Note, Opportunity, Sector, Source, State, Step
 from jobs.ordering import top_step
 
 
@@ -422,3 +422,16 @@ class JobDescriptionForm(forms.ModelForm):
 
         model = Opportunity
         fields = ("job_description",)
+
+
+class LeadForm(forms.ModelForm):
+    """A link and some notes — the whole of the sources page (plan 010)."""
+
+    class Meta:
+        """Both fields, as typed."""
+
+        model = Lead
+        fields = ("url", "notes")
+        widgets: ClassVar[dict[str, forms.Widget]] = {
+            "notes": forms.Textarea(attrs={"rows": 3}),
+        }

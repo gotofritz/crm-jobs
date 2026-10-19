@@ -151,6 +151,9 @@ Nine tables plus one `TextChoices` enum, described in full in plan 001 §6:
 - `Employment` — one row per stint, so a contact can move between companies
   without the old opportunity losing them. A `NULL` bound means open, not
   unknown-and-excluded; `Employment.objects.on(day)` reads it that way.
+- `Lead` — a place to look for future opportunities: a `url` and free-text
+  `notes`, listed newest first on `/sources/` (plan 010). Distinct from `Source`,
+  the picklist saying where an existing opportunity came from.
 - `Opportunity` — one application, live while `archived_at` is `NULL`.
   `Opportunity.objects.live()` and `.archived()` are asked for explicitly;
   no manager filters archived rows away silently. `job_description` holds the

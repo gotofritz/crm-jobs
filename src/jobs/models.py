@@ -129,6 +129,25 @@ class Source(models.Model):
         return self.name
 
 
+class Lead(models.Model):
+    """A place to look for future opportunities: a link and some notes (plan 010).
+
+    Not a `Source`, which names where an existing opportunity came from.
+    """
+
+    url = models.URLField()
+    notes = models.TextField(blank=True, default="")
+
+    class Meta:
+        """Newest first, so the latest addition is on top."""
+
+        ordering = ("-pk",)
+
+    def __str__(self) -> str:
+        """Name the lead by its link."""
+        return self.url
+
+
 class State(models.Model):
     """What a step means. The vocabulary is data; its colours are not (§6.10)."""
 
