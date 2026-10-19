@@ -74,11 +74,29 @@ Visit `http://localhost:8000`
 uv run poe dev       # sync, migrate, then runserver with Tailwind watching
 uv run poe migrate   # apply migrations, seeding states, sources and sectors
 uv run poe css       # recompile static/css/app.css from assets/
+uv run poe export <dir>  # write the board as TSV files (see below)
+uv run poe import <dir>  # add what TSV files hold, --dry-run to preview
 uv run poe demo      # rebuild demo.sqlite3 with demo rows and serve it
 uv run poe test      # pytest
 uv run poe qa        # all checks (lint, type, test, deployment checklist)
 uv run poe check-deploy  # Django's deployment checklist on production settings
 ```
+
+### Export and import
+
+The board moves in and out as TSV: one file per kind of row
+(`opportunities`, `steps`, `notes`, `companies`, `contacts`, `leads`) in a directory.
+
+```bash
+uv run poe export backups/2026-10-19
+uv run poe import backups/2026-10-19 --dry-run
+uv run poe import backups/2026-10-19
+```
+
+Import only creates: rows already on the board are skipped, never updated, and
+one bad row anywhere writes nothing. `--demo` reads or writes `demo.sqlite3`
+instead. It is a portable copy of the data, not a replacement for the SQLite
+backup. See [docs/initial-context.md](./docs/initial-context.md#import-and-export).
 
 ### Configuration
 

@@ -30,7 +30,7 @@ There are two aliases, `default` and `demo`, built by one function so they
 cannot drift apart. `demo` is `./demo.sqlite3`, moved by `DJANGO_DEMO_DB_PATH`,
 and it exists so a command's `--demo` can pick a database by name rather than
 mutate a path after Django has started. No command uses it since the sheet
-import was removed; the TSV import (plan 005) will. Under `poe demo`,
+import was removed; `export_tsv` and `import_tsv` (plan 005) take `--demo`. Under `poe demo`,
 `DJANGO_DB_PATH` already points `default` at the same file.
 
 ### Settings and secrets
@@ -210,11 +210,47 @@ file-backed equivalent for a browser to look at.
 
 ### Import and export
 
-The one-off import of the retired Google Sheet (plans 003 and 004) has done its
-job and been removed. Moving data in and out as TSV is planned in
-`docs/plans/005-tsv-import-export.md`. The `demo` alias, `OpportunityForm`'s
-`using=` and `add_first_step` writing to its opportunity's own database are
-kept for it.
+`manage.py export_tsv <dir>` writes the board as six TSV files and
+`manage.py import_tsv <dir> [--demo] [--dry-run]` reads them back (plan 005).
+Three modules, split the way the boundaries table asks:
+
+- `jobs/tsv.py` reads and writes one file: `excel-tab` quoting, UTF-8 with no
+  BOM on the way out, a BOM dropped and a non-UTF-8 file read as cp1252 on the
+  way in. It reports a bad header or a short row as a `Problem` with file, line
+  and column rather than raising, so one run lists everything wrong.
+- `jobs/transfer.py` knows the tables (`TABLES` is the column contract), the
+  natural keys and the transaction. It takes and returns `{table: rows}` of
+  strings and knows nothing about files.
+- the two commands read arguments, touch files and print the report.
+
+| File | One row per | Natural key |
+|------|-------------|-------------|
+| `companies.tsv` | company | `name` |
+| `contacts.tsv` | contact, or one stint of a contact | `name` (+ `company`, `started_on`) |
+| `opportunities.tsv` | opportunity | `company`, `title`, `date` |
+| `steps.tsv` | step | its opportunity's key, then `state` slug, `date`, `time`, `title` |
+| `notes.tsv` | note | its opportunity's key, then `created_at`, `body` |
+| `leads.tsv` | lead on the sources page | `name`, `url` |
+
+Rows point at each other by natural key, never by id. Import runs in that
+order (leads last, written oldest first so the page's newest-first order returns), through the board's own forms (`ImportOpportunityForm` and
+`ImportNoteForm` add `archived_at` and `created_at`, which only an import may
+set; `StepForm` and `OpportunityForm` take `using=`), so it accepts what a card
+would. It is create-only: a row whose key exists is skipped, so a stale file
+cannot undo an edit made since. It is all-or-nothing: the whole run is one
+transaction, rolled back if any row has a problem or under `--dry-run`, which
+is why the preview cannot differ from the run. An unknown state slug is a
+problem; states are not created by importing.
+
+Decisions that were open in the plan: a directory of files rather than one
+wide file; `excel-tab` quoting rather than backslash escapes; skip rather than
+update; every employment stint is exported, a contact with none gets a row with
+an empty `company`; opportunities and steps carry no `created_at`/`updated_at`
+(notes do, since it orders them); commands only, no browser upload or download.
+Contacts are keyed by name alone, as `by_name` resolves them, so two people with
+one name merge on import. Free text is exported stripped, because the forms
+strip it on the way in. `export_tsv` refuses to write into a directory that
+already holds an export.
 
 ### Ordering
 
