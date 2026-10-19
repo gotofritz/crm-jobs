@@ -29,6 +29,11 @@ resource "github_repository" "crm_jobs" {
   # Never let Terraform delete the repo, e.g. after a rename here.
   lifecycle {
     prevent_destroy = true
+
+    # The repo was created from a template. GitHub only uses that at
+    # creation, so Terraform would otherwise show clearing it as a change
+    # in every plan.
+    ignore_changes = [template]
   }
 }
 

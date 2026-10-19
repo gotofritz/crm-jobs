@@ -126,6 +126,7 @@ tests/            mirrors src/, one directory per package
 assets/           hand-written css and the tailwind input, compiled from here
 static/           vendored htmx, compiled tailwind css
 deploy/           Caddyfile, systemd units, backup timer
+infra/            Terraform for the GitHub repo settings
 docs/             plans, archive, this file
 ```
 
