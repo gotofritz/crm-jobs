@@ -30,12 +30,6 @@ def test_str_is_the_name(lead: Lead) -> None:
     assert str(lead) == "Example board"
 
 
-@pytest.mark.usefixtures("db")
-def test_str_falls_back_to_the_link() -> None:
-    """An unlabelled lead is still nameable."""
-    assert str(Lead(url="https://example.com/jobs")) == "https://example.com/jobs"
-
-
 def test_the_page_lists_sources_and_offers_a_blank_form(client: Client, lead: Lead) -> None:
     """Existing sources come back as editable fields, with a form to add one."""
     response = client.get(reverse("leads"))
@@ -86,19 +80,25 @@ def test_create_saves_and_redirects_back(client: Client) -> None:
 
 
 @pytest.mark.usefixtures("db")
-def test_create_with_name_and_notes_left_blank(client: Client) -> None:
-    """Name and notes are optional."""
-    client.post(reverse("lead-create"), {"url": "https://wellfound.com/jobs"})
+def test_create_with_notes_left_blank(client: Client) -> None:
+    """Notes are optional."""
+    client.post(reverse("lead-create"), {"name": "Wellfound", "url": "https://wellfound.com/jobs"})
 
-    lead = Lead.objects.get()
-    assert (lead.name, lead.notes) == ("", "")
+    assert Lead.objects.get().notes == ""
 
 
-@pytest.mark.parametrize("url", ["", "not a link"])
+@pytest.mark.parametrize(
+    "posted",
+    [
+        {"name": "Board", "url": ""},
+        {"name": "Board", "url": "not a link"},
+        {"name": "", "url": "https://example.com/jobs"},
+    ],
+)
 @pytest.mark.usefixtures("db")
-def test_create_rejects_a_bad_link(client: Client, url: str) -> None:
+def test_create_rejects_a_missing_name_or_bad_link(client: Client, posted: dict[str, str]) -> None:
     """The page comes back with the error; nothing is saved."""
-    response = client.post(reverse("lead-create"), {"url": url, "notes": "kept"})
+    response = client.post(reverse("lead-create"), {**posted, "notes": "kept"})
 
     assert response.status_code == 200
     assert not Lead.objects.exists()
@@ -125,7 +125,10 @@ def test_update_changes_the_row(client: Client, lead: Lead) -> None:
 
 def test_update_rejects_a_bad_link(client: Client, lead: Lead) -> None:
     """A bad edit leaves the stored row alone and shows the error."""
-    response = client.post(reverse("lead-update", args=[lead.pk]), {"url": "nope", "notes": "x"})
+    response = client.post(
+        reverse("lead-update", args=[lead.pk]),
+        {"name": "Example board", "url": "nope", "notes": "x"},
+    )
 
     assert response.status_code == 200
     assert "errorlist" in response.content.decode()
@@ -136,7 +139,9 @@ def test_update_rejects_a_bad_link(client: Client, lead: Lead) -> None:
 @pytest.mark.usefixtures("db")
 def test_update_unknown_is_404(client: Client) -> None:
     """No such row."""
-    response = client.post(reverse("lead-update", args=[999]), {"url": "https://a.com"})
+    response = client.post(
+        reverse("lead-update", args=[999]), {"name": "A", "url": "https://a.com"}
+    )
 
     assert response.status_code == 404
 

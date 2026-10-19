@@ -130,12 +130,12 @@ class Source(models.Model):
 
 
 class Lead(models.Model):
-    """A place to look for future opportunities: a label, a link and notes (plan 010).
+    """A place to look for future opportunities: a name, a link and notes (plan 010).
 
     Not a `Source`, which names where an existing opportunity came from.
     """
 
-    name = models.CharField(max_length=200, blank=True, default="")
+    name = models.CharField(max_length=200)
     url = models.URLField()
     notes = models.TextField(blank=True, default="")
 
@@ -145,8 +145,8 @@ class Lead(models.Model):
         ordering = ("-pk",)
 
     def __str__(self) -> str:
-        """Name the lead by its label, or its link when it has none."""
-        return self.name or self.url
+        """Name the lead."""
+        return self.name
 
 
 class State(models.Model):

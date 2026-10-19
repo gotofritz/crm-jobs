@@ -20,7 +20,7 @@ for future opportunities.
 
 ## 3. Design
 
-- New model `Lead` (`name`, `url`, `notes`; the name is an optional label), newest first. Named apart from `Source` so
+- New model `Lead` (`name`, `url`, `notes`), newest first. Named apart from `Source` so
   the two ideas do not blur
 - `LeadForm` validates the link; a bad one re-renders the page with the error
   and keeps what was typed
