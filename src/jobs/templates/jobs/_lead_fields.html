@@ -1,0 +1,8 @@
+{# The two inputs of a source, with whatever the form has to say about them. #}
+{% for field in form %}
+  <label class="lead__field">
+    <span class="lead__label">{{ field.label }}</span>
+    {{ field }}
+    {{ field.errors }}
+  </label>
+{% endfor %}

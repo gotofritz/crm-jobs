@@ -10,6 +10,7 @@ from jobs.models import (
     Company,
     Contact,
     Employment,
+    Lead,
     Note,
     Opportunity,
     Sector,
@@ -125,3 +126,11 @@ class NoteAdmin(admin.ModelAdmin):
     autocomplete_fields = ("opportunity",)
     ordering = ("-created_at",)
     search_fields = ("body",)
+
+
+@admin.register(Lead)
+class LeadAdmin(admin.ModelAdmin):
+    """Places to look for future opportunities (plan 010)."""
+
+    list_display = ("name", "url")
+    search_fields = ("name", "url", "notes")

@@ -22,8 +22,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from django_htmx.middleware import HtmxDetails
 
-from jobs.forms import NoteForm, OpportunityForm, StepForm
-from jobs.models import Company, Contact, Note, Opportunity, Sector, Source, Step
+from jobs.forms import LeadForm, NoteForm, OpportunityForm, StepForm
+from jobs.models import Company, Contact, Lead, Note, Opportunity, Sector, Source, Step
 
 # Every mutation response carries these two out of band: the header counts,
 # which an archive changes, and an empty drawer, which closes the form.
@@ -552,3 +552,56 @@ def step_delete(request: HtmxHttpRequest, pk: int) -> HttpResponse:
     order_before = _order_of_the_board()
     step.delete()
     return _after_change(request, opportunity, order_before)
+
+
+# --- Sources ---------------------------------------------------------------
+
+
+def _leads_page(
+    request: HtmxHttpRequest, *, new_form: LeadForm | None = None, bad: LeadForm | None = None
+) -> HttpResponse:
+    """The sources page. At most one row is open for editing: `bad` (a rejected edit) or `?edit=`.
+
+    Each row is paired with its form when open, `None` when read-only.
+    """
+    raw = request.GET.get("edit", "")
+    editing = bad.instance.pk if bad is not None else int(raw) if raw.isdigit() else None
+    rows = [
+        (lead, (bad or LeadForm(instance=lead)) if lead.pk == editing else None)
+        for lead in Lead.objects.all()
+    ]
+    return render(request, "jobs/leads.html", {"new_form": new_form or LeadForm(), "rows": rows})
+
+
+@require_GET
+def leads(request: HtmxHttpRequest) -> HttpResponse:
+    """Places to look for future opportunities, newest first (plan 010)."""
+    return _leads_page(request)
+
+
+@require_POST
+def lead_create(request: HtmxHttpRequest) -> HttpResponse:
+    """Add a source; a bad link brings the page back with the error."""
+    form = LeadForm(data=request.POST)
+    if not form.is_valid():
+        return _leads_page(request, new_form=form)
+    form.save()
+    return redirect("leads")
+
+
+@require_POST
+def lead_update(request: HtmxHttpRequest, pk: int) -> HttpResponse:
+    """Save one source's link and notes."""
+    lead = get_object_or_404(Lead, pk=pk)
+    form = LeadForm(data=request.POST, instance=lead)
+    if not form.is_valid():
+        return _leads_page(request, bad=form)
+    form.save()
+    return redirect("leads")
+
+
+@require_POST
+def lead_delete(_request: HtmxHttpRequest, pk: int) -> HttpResponse:
+    """Remove one source."""
+    get_object_or_404(Lead, pk=pk).delete()
+    return redirect("leads")
