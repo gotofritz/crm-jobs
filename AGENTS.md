@@ -35,6 +35,7 @@ config/           settings, urls, wsgi
 jobs/             the app: models, views, forms, templates
 static/           vendored htmx, compiled tailwind css
 deploy/           Caddyfile, systemd units, backup timer
+infra/            Terraform for the GitHub repo settings
 docs/             plans, archive, initial-context
 ```
 

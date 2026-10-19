@@ -47,6 +47,17 @@ sequence = [
 ]
 args = [{name = "port", default = "$default_port"}]
 
+[tool.poe.tasks.infra]
+help = "Show the plan for the GitHub repo settings in infra/ and apply it on yes (needs GITHUB_TOKEN)"
+shell = '''
+if [ -z "$GITHUB_TOKEN" ]; then
+  echo "GITHUB_TOKEN not set: see 'Repository settings' in README.md"
+  exit 1
+fi
+terraform -chdir=infra init -input=false
+terraform -chdir=infra apply
+'''
+
 [tool.poe.tasks.lint]
 help = "Lint the project"
 sequence = [
