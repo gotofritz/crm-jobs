@@ -261,7 +261,6 @@ crm-jobs/
   static/                 htmx.min.js, board.js, compiled tailwind css
   deploy/                 Caddyfile, crm-jobs.service, backup timer
   .github/workflows/      ci.yml, deploy.yml
-  clasp/                  kept read-only as reference until the GAS app is retired
 ```
 
 ### Deviation from AGENTS.md worth recording

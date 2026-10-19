@@ -36,7 +36,6 @@ jobs/             the app: models, views, forms, templates
 static/           vendored htmx, compiled tailwind css
 deploy/           Caddyfile, systemd units, backup timer
 docs/             plans, archive, initial-context
-clasp/            retired Google Apps Script source, reference only
 ```
 
 Serving chain in production:
