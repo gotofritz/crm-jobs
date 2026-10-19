@@ -58,6 +58,14 @@ terraform -chdir=infra init -input=false
 terraform -chdir=infra apply
 '''
 
+[tool.poe.tasks.export]
+help = "Export the board as TSV files: poe export <dir> [--demo]"
+cmd = "python manage.py export_tsv"
+
+[tool.poe.tasks.import]
+help = "Import TSV files: poe import <dir> [--demo] [--dry-run]"
+cmd = "python manage.py import_tsv"
+
 [tool.poe.tasks.lint]
 help = "Lint the project"
 sequence = [

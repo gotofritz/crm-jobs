@@ -10,8 +10,8 @@ import datetime as dt
 
 import pytest
 
-from jobs.forms import OpportunityForm
-from jobs.models import Company, Contact, Opportunity, Sector, Source, Step
+from jobs.forms import OpportunityForm, StepForm
+from jobs.models import Company, Contact, Opportunity, Sector, Source, State, Step
 
 BOTH = pytest.mark.django_db(databases=["default", "demo"])
 
@@ -85,3 +85,23 @@ def test_the_first_step_lands_in_the_opportunitys_own_database() -> None:
     assert Step.objects.using("demo").get() == step
     assert list(step.contacts.all()) == [contact]
     assert not Step.objects.using("default").exists()
+
+
+@BOTH
+def test_a_step_form_saved_into_demo_resolves_state_and_contacts_there() -> None:
+    """The step, its state lookup and the people it names all use the chosen database."""
+    opportunity = OpportunityForm(data=ROW, using="demo").save()
+    state = State.objects.using("demo").get(slug="unremarkable")
+
+    form = StepForm(
+        data={"state": state.pk, "date": "2026-09-25", "title": "Call", "contacts": "Grace Hopper"},
+        opportunity=opportunity,
+        using="demo",
+    )
+    assert form.is_valid(), form.errors
+    form.save()
+
+    assert Step.objects.using("demo").filter(title="Call").exists()
+    assert Contact.objects.using("demo").filter(name="Grace Hopper").exists()
+    assert not Step.objects.filter(title="Call").exists()
+    assert not Contact.objects.filter(name="Grace Hopper").exists()

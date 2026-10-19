@@ -345,10 +345,21 @@ class StepForm(FieldScoped):
             "comments": box(3, "Anything worth remembering", "Notes on this step"),
         }
 
-    def __init__(self, *args: Any, opportunity: Opportunity, **kwargs: Any) -> None:
-        """A step has no meaning without its opportunity, so it is not optional here."""
+    def __init__(
+        self, *args: Any, opportunity: Opportunity, using: str = DEFAULT_DB_ALIAS, **kwargs: Any
+    ) -> None:
+        """A step has no meaning without its opportunity, so it is not optional here.
+
+        `using` is as on `OpportunityForm`: the state is looked up, the step
+        saved and the contacts resolved in that database, for the TSV import's
+        `--demo` (plan 005 §6).
+        """
         super().__init__(*args, **kwargs)
         self.opportunity = opportunity
+        self.using = using
+        state = self.fields.get("state")
+        if isinstance(state, forms.ModelChoiceField):
+            state.queryset = State.objects.using(using)
         if self.instance.pk is not None:
             self.initial.setdefault("contacts", self.instance.contact_names)
         else:
@@ -362,7 +373,7 @@ class StepForm(FieldScoped):
             # A new step may also move the one before it on: the leftmost card,
             # which is `top_step`. Not offered on an edit, nor to a first step.
             self.fields["previous_state"] = forms.ModelChoiceField(
-                queryset=State.objects.all(),
+                queryset=State.objects.using(using),
                 required=False,
                 initial=previous.state,
                 label="Previous step",
@@ -376,14 +387,17 @@ class StepForm(FieldScoped):
             return step
         # Found before the new step exists, or it could be the one it finds.
         previous = top_step(self.opportunity.steps.all()) if self.edits("previous_state") else None
-        step.save()
+        step.save(using=self.using)
         chosen = self.cleaned_data.get("previous_state")
         if previous is not None and chosen is not None and chosen != previous.state:
             previous.state = chosen
-            previous.save(update_fields=["state"])
+            previous.save(update_fields=["state"], using=self.using)
         # An edit that never sent the contacts must not empty them.
         if self.edits("contacts"):
-            people = [by_name(Contact, name) for name in names_of(self.cleaned_data["contacts"])]
+            people = [
+                by_name(Contact, name, using=self.using)
+                for name in names_of(self.cleaned_data["contacts"])
+            ]
             step.contacts.set([person for person in people if person is not None])
         return step
 
@@ -400,17 +414,101 @@ class NoteForm(FieldScoped):
             "body": box(3, "What is worth remembering", "Note")
         }
 
-    def __init__(self, *args: Any, opportunity: Opportunity, **kwargs: Any) -> None:
+    def __init__(
+        self, *args: Any, opportunity: Opportunity, using: str = DEFAULT_DB_ALIAS, **kwargs: Any
+    ) -> None:
         """A note belongs to an opportunity, and is never written without one."""
         super().__init__(*args, **kwargs)
         self.opportunity = opportunity
+        self.using = using
 
     def save(self, commit: bool = True) -> Note:
         """Save against the opportunity the form was opened on."""
         note = super().save(commit=False)
         note.opportunity = self.opportunity
         if commit:
-            note.save()
+            note.save(using=self.using)
+        return note
+
+
+class CompanyForm(forms.ModelForm):
+    """A company on its own, as the TSV import reads it (plan 005 §4).
+
+    The board never edits a company except through an opportunity, so this form
+    exists for the import. The sector is typed and resolved in `save`, as on
+    `OpportunityForm`.
+    """
+
+    sector = forms.CharField(max_length=100, required=False)
+
+    class Meta:
+        """The company's own fields; the sector is resolved from its name."""
+
+        model = Company
+        fields = ("name", "url", "linkedin_url", "head_office")
+
+    def __init__(self, *args: Any, using: str = DEFAULT_DB_ALIAS, **kwargs: Any) -> None:
+        """Save, and resolve the sector, in the database the import was pointed at."""
+        super().__init__(*args, **kwargs)
+        self.using = using
+
+    def validate_unique(self) -> None:
+        """Leave uniqueness to the import, which looks in the right database.
+
+        `ModelForm` checks it against the default database, which with `--demo`
+        is the wrong one, and the import skips a company that already exists
+        rather than reporting it.
+        """
+
+    def save(self, commit: bool = True) -> Company:
+        """Resolve the sector, then save."""
+        company = super().save(commit=False)
+        company.sector = by_name(Sector, self.cleaned_data["sector"], using=self.using)
+        if commit:
+            company.save(using=self.using)
+        return company
+
+
+class ContactRowForm(forms.Form):
+    """One row of `contacts.tsv`: a person and, optionally, one stint at a company."""
+
+    name = forms.CharField(max_length=200)
+    notes = forms.CharField(required=False)
+    company = forms.CharField(max_length=200, required=False)
+    started_on = forms.DateField(required=False)
+    ended_on = forms.DateField(required=False)
+
+
+class ImportOpportunityForm(OpportunityForm):
+    """`OpportunityForm` plus `archived_at`, which only an import may set.
+
+    On the board, archiving is its own action (§6.5) and the field is not
+    editable in place; a restored export has to bring it back.
+    """
+
+    archived_at = forms.DateTimeField(required=False)
+
+    def save(self, commit: bool = True) -> Opportunity:
+        """Save, stamping the archive date when the row carries one."""
+        opportunity = super().save(commit=False)
+        opportunity.archived_at = self.cleaned_data["archived_at"]
+        if commit:
+            opportunity.save(using=self.using)
+        return opportunity
+
+
+class ImportNoteForm(NoteForm):
+    """`NoteForm` plus `created_at`, which notes need so they keep their order."""
+
+    created_at = forms.DateTimeField(required=False)
+
+    def save(self, commit: bool = True) -> Note:
+        """Save, keeping the written date when the row carries one."""
+        note = super().save(commit=False)
+        if self.cleaned_data["created_at"] is not None:
+            note.created_at = self.cleaned_data["created_at"]
+        if commit:
+            note.save(using=self.using)
         return note
 
 

@@ -1,14 +1,15 @@
 # 005 — Import and export as TSV
 
-Status: outline
+Status: implemented
 Date: 2026-09-29
 Replaces: the one-off sheet import of `docs/archive/003-import-the-sheet.md`
 and `docs/archive/004-import-opportunities-csv.md`, both removed once the
 legacy data was in
 
-An outline, not yet a plan: the goals, the shape, and the questions to settle
-before the first test is written. Nothing here carries over the old sheet's
-packed-cell format, which existed only because the app used to be a sheet.
+Implemented; the answers to §8 are recorded in `docs/initial-context.md`
+under "Import and export". The text below is the outline it was built from.
+Nothing here carries over the old sheet's packed-cell format, which existed
+only because the app used to be a sheet.
 
 ## 1. Goal
 
